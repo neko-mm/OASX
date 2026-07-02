@@ -1,0 +1,125 @@
+name: Personal Windows Release
+
+on:
+  push:
+    branches:
+      - personal
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.35.1"
+  DART_VERSION: "3.9.0"
+
+jobs:
+  build_windows:
+    name: Build and publish personal Windows release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout personal branch
+        uses: actions/checkout@v6
+        with:
+          ref: personal
+
+      - name: Resolve personal version
+        id: version
+        shell: pwsh
+        run: |
+          $year = (Get-Date).ToUniversalTime().Year
+          $month = (Get-Date).ToUniversalTime().Month
+          $version = "$year.$month.${{ github.run_number }}"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+          pub-cache: true
+
+      - name: Verify SDK versions
+        shell: pwsh
+        run: |
+          $flutterOutput = ((flutter --version) | Out-String).Trim()
+          $flutterOutput
+          if ($flutterOutput -notmatch "Flutter $env:FLUTTER_VERSION") {
+            throw "Expected Flutter $env:FLUTTER_VERSION"
+          }
+
+          $dartOutput = ((dart --version 2>&1) | Out-String).Trim()
+          $dartOutput
+          if ($dartOutput -notmatch "Dart SDK version: $env:DART_VERSION") {
+            throw "Expected Dart $env:DART_VERSION"
+          }
+
+      - name: Install dependencies
+        shell: pwsh
+        run: flutter pub get
+
+      - name: Verify personal update source
+        shell: pwsh
+        run: flutter test test/personal_update_source_test.dart
+
+      - name: Build Windows app
+        shell: pwsh
+        run: |
+          flutter build windows --release `
+            --build-name "${{ steps.version.outputs.version }}" `
+            --build-number "${{ github.run_number }}"
+
+      - name: Install UPX
+        shell: pwsh
+        run: choco install upx -y
+
+      - name: Compress Windows binaries
+        shell: pwsh
+        run: |
+          $releasePath = Join-Path $env:GITHUB_WORKSPACE 'build/windows/x64/runner/Release'
+          if (!(Test-Path $releasePath)) {
+            $releasePath = Join-Path $env:GITHUB_WORKSPACE 'build/windows/runner/Release'
+          }
+          Push-Location $releasePath
+          try {
+            Get-ChildItem -Filter *.exe | ForEach-Object { & upx --best --lzma $_.Name }
+            Get-ChildItem -Filter *.dll | ForEach-Object { & upx --best --lzma $_.Name }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Package Windows release
+        id: package
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag }}
+        run: |
+          $releasePath = Join-Path $env:GITHUB_WORKSPACE 'build/windows/x64/runner/Release'
+          if (!(Test-Path $releasePath)) {
+            $releasePath = Join-Path $env:GITHUB_WORKSPACE 'build/windows/runner/Release'
+          }
+          $assetName = "oasx_${env:TAG_NAME}_windows.zip"
+          $assetPath = Join-Path $env:GITHUB_WORKSPACE $assetName
+          Compress-Archive -Path (Join-Path $releasePath '*') -DestinationPath $assetPath -Force
+          "asset_path=$assetPath" >> $env:GITHUB_OUTPUT
+
+      - name: Create or update personal release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ steps.version.outputs.tag }}
+          ASSET_PATH: ${{ steps.package.outputs.asset_path }}
+        run: |
+          if (gh release view "$env:TAG_NAME" --repo "$env:GITHUB_REPOSITORY" 2>$null) {
+            gh release upload "$env:TAG_NAME" "$env:ASSET_PATH" `
+              --repo "$env:GITHUB_REPOSITORY" `
+              --clobber
+          } else {
+            gh release create "$env:TAG_NAME" "$env:ASSET_PATH" `
+              --repo "$env:GITHUB_REPOSITORY" `
+              --target "$env:GITHUB_SHA" `
+              --title "Personal OASX $env:TAG_NAME" `
+              --notes "Personal Windows build from the personal branch." `
+              --latest
+          }
