@@ -15,7 +15,10 @@ env:
 jobs:
   build_windows:
     name: Build and publish personal Windows release
-    runs-on: windows-latest
+    # Flutter 3.35.1 recognizes the Visual Studio 2022 toolchain. The current
+    # windows-latest image exposes a newer Visual Studio major version, which
+    # this Flutter release incorrectly maps to the VS 2019 CMake generator.
+    runs-on: windows-2022
     steps:
       - name: Checkout personal branch
         uses: actions/checkout@v6
