@@ -23,6 +23,21 @@ namespace OasxLauncher
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            if (args.Length == 2 && args[0] == "--verify-test-update")
+            {
+                try
+                {
+                    using (var launcher = new LauncherForm())
+                        launcher.VerifyLatestPackageAsync("test").GetAwaiter().GetResult();
+                    File.WriteAllText(args[1], "OK");
+                }
+                catch (Exception error)
+                {
+                    File.WriteAllText(args[1], error.ToString());
+                    Environment.ExitCode = 1;
+                }
+                return;
+            }
             if (args.Length == 1 && args[0] == "--settings")
             {
                 Application.Run(new ChannelSettingsForm());
@@ -316,12 +331,49 @@ namespace OasxLauncher
             {
                 if (_finished) return;
                 if (_skipRequested) { LaunchInstalled(); return; }
+                try
+                {
+                    File.AppendAllText(Path.Combine(_installDir, "oasx-launcher.log"),
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + Environment.NewLine +
+                        error + Environment.NewLine);
+                }
+                catch { /* Update failure must not prevent the old version starting. */ }
                 SetStatus("更新未完成", SafeMessage(error));
                 _progress.Style = ProgressBarStyle.Continuous;
                 _progress.Value = 0;
                 CleanupTemp();
                 await Task.Delay(1500);
                 LaunchInstalled();
+            }
+        }
+
+        /// Exercises the same release, download, digest and extraction path
+        /// without replacing the installed application.
+        internal async Task VerifyLatestPackageAsync(string channel)
+        {
+            var release = await GetLatestReleaseAsync(channel);
+            var root = Path.Combine(Path.GetTempPath(),
+                "oasx-verify-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var zip = Path.Combine(root, "release.zip");
+                using (var client = CreateClient())
+                    await client.DownloadFileTaskAsync(new Uri(release.DownloadUrl), zip);
+                if (!MatchesDigest(zip, release.Digest))
+                    throw new InvalidDataException("安装包校验失败。");
+                var stage = Path.Combine(root, "stage");
+                ExtractSafely(zip, stage);
+                if (ReadStageText(stage, "oasx-channel.txt") != channel ||
+                    ReadStageText(stage, "oasx-release.txt") != release.Tag ||
+                    !File.Exists(Path.Combine(stage, AppName)) ||
+                    !File.Exists(Path.Combine(stage, "OASX.Launcher.exe")) ||
+                    !File.Exists(Path.Combine(stage, "package-files.txt")))
+                    throw new InvalidDataException("安装包内容不匹配。");
+            }
+            finally
+            {
+                Directory.Delete(root, true);
             }
         }
 
@@ -528,7 +580,7 @@ namespace OasxLauncher
         {
             if (error is WebException) return "网络不可用，继续启动现有版本。";
             if (error is InvalidDataException) return error.Message;
-            return "保留现有版本并继续启动。";
+            return "更新失败，请查看 oasx-launcher.log。";
         }
 
         private sealed class ReleaseInfo

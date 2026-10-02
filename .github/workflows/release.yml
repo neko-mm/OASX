@@ -74,6 +74,20 @@ jobs:
           flutter build windows --release
           if ($LASTEXITCODE -ne 0) { throw 'Flutter Windows build failed.' }
           ./launcher/Package-Windows.ps1 -Channel test -Version "${{ github.sha }}"
+          $releasePath = Join-Path $env:GITHUB_WORKSPACE 'build/windows/x64/runner/Release'
+          if (!(Test-Path $releasePath)) {
+            $releasePath = Join-Path $env:GITHUB_WORKSPACE 'build/windows/runner/Release'
+          }
+          $resultPath = Join-Path $env:RUNNER_TEMP 'oasx-launcher-verify.txt'
+          $probe = Start-Process -FilePath (Join-Path $releasePath 'OASX.Launcher.exe') `
+            -ArgumentList @('--verify-test-update', ('"' + $resultPath + '"')) `
+            -WorkingDirectory $releasePath -Wait -PassThru
+          if (!(Test-Path $resultPath)) { throw 'Launcher update probe produced no result.' }
+          $probeResult = Get-Content -LiteralPath $resultPath -Raw
+          Write-Host $probeResult
+          if ($probe.ExitCode -ne 0 -or $probeResult.Trim() -ne 'OK') {
+            throw 'Launcher could not fetch and validate the current test update.'
+          }
 
       - name: Upload Windows test package
         if: matrix.label == 'Windows'
