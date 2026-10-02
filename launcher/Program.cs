@@ -385,8 +385,9 @@ namespace OasxLauncher
                 string json;
                 try
                 {
-                    json = await client.DownloadStringTaskAsync(new Uri(
+                    var bytes = await client.DownloadDataTaskAsync(new Uri(
                         channel == "test" ? TestReleaseApi : ReleaseApi));
+                    json = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
                 }
                 catch (WebException error)
                 {
@@ -396,7 +397,8 @@ namespace OasxLauncher
                         throw new InvalidDataException("测试版暂未发布。");
                     if (channel != "stable" || response == null ||
                         response.StatusCode != HttpStatusCode.NotFound) throw;
-                    json = await client.DownloadStringTaskAsync(new Uri(LegacyReleaseApi));
+                    var bytes = await client.DownloadDataTaskAsync(new Uri(LegacyReleaseApi));
+                    json = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
                 }
                 var root = new JavaScriptSerializer().DeserializeObject(json)
                     as Dictionary<string, object>;
