@@ -23,6 +23,11 @@ namespace OasxLauncher
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            if (args.Length == 1 && args[0] == "--settings")
+            {
+                Application.Run(new ChannelSettingsForm());
+                return;
+            }
             if (args.Length == 2 && args[0] == "--wait-for-pid")
             {
                 int previousPid;
@@ -42,6 +47,96 @@ namespace OasxLauncher
         }
     }
 
+    internal static class UpdateChannel
+    {
+        private const string PreferenceFile = "oasx-update-channel.txt";
+
+        public static string Read(string directory)
+        {
+            var selected = ReadFile(Path.Combine(directory, PreferenceFile));
+            if (selected == "stable" || selected == "test") return selected;
+            var installed = ReadFile(Path.Combine(directory, "oasx-channel.txt"));
+            return installed == "test" ? "test" : "stable";
+        }
+
+        public static void Write(string directory, string channel)
+        {
+            if (channel != "stable" && channel != "test")
+                throw new ArgumentException("无效的更新渠道。", "channel");
+            var path = Path.Combine(directory, PreferenceFile);
+            var temporary = path + ".tmp";
+            File.WriteAllText(temporary, channel, Encoding.UTF8);
+            try
+            {
+                if (File.Exists(path)) File.Replace(temporary, path, null);
+                else File.Move(temporary, path);
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+        }
+
+        private static string ReadFile(string path)
+        {
+            return File.Exists(path) ? File.ReadAllText(path).Trim('\uFEFF', ' ', '\r', '\n') : "";
+        }
+    }
+
+    internal sealed class ChannelSettingsForm : Form
+    {
+        private readonly ComboBox _channel;
+
+        public ChannelSettingsForm()
+        {
+            Text = "OASX · 更新渠道";
+            ClientSize = new Size(350, 156);
+            MinimumSize = MaximumSize = Size;
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            BackColor = Color.FromArgb(13, 20, 29);
+            ForeColor = Color.FromArgb(227, 236, 244);
+            Font = new Font("Microsoft YaHei UI", 9F);
+
+            var label = new Label {
+                Text = "更新渠道", Location = new Point(22, 25), Size = new Size(90, 25)
+            };
+            _channel = new ComboBox {
+                Location = new Point(118, 22), Size = new Size(206, 28),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            _channel.Items.AddRange(new object[] { "稳定版", "测试版" });
+            _channel.SelectedIndex = UpdateChannel.Read(AppDomain.CurrentDomain.BaseDirectory)
+                == "test" ? 1 : 0;
+            var help = new Label {
+                Text = "下次通过启动器打开时生效", Location = new Point(22, 64),
+                Size = new Size(302, 23), ForeColor = Color.FromArgb(151, 170, 186)
+            };
+            var cancel = new Button {
+                Text = "取消", Location = new Point(172, 108), Size = new Size(72, 30)
+            };
+            cancel.Click += (sender, args) => Close();
+            var save = new Button {
+                Text = "保存", Location = new Point(252, 108), Size = new Size(72, 30)
+            };
+            save.Click += (sender, args) => {
+                try
+                {
+                    UpdateChannel.Write(AppDomain.CurrentDomain.BaseDirectory,
+                        _channel.SelectedIndex == 1 ? "test" : "stable");
+                    Close();
+                }
+                catch (Exception error)
+                {
+                    MessageBox.Show("保存失败：" + error.Message, "OASX",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+            Controls.AddRange(new Control[] { label, _channel, help, cancel, save });
+        }
+    }
+
     internal sealed class LauncherForm : Form
     {
         [DllImport("dwmapi.dll")]
@@ -49,7 +144,11 @@ namespace OasxLauncher
             ref int value, int size);
 
         private const string ReleaseApi =
+            "https://api.github.com/repos/neko-mm/OASX/releases/tags/oasx-personal";
+        private const string LegacyReleaseApi =
             "https://api.github.com/repos/neko-mm/OASX/releases/latest";
+        private const string TestReleaseApi =
+            "https://api.github.com/repos/neko-mm/OASX/releases/tags/oasx-master";
         private const string AppName = "oasx.exe";
         private readonly string _installDir = AppDomain.CurrentDomain.BaseDirectory;
         private readonly Label _status;
@@ -91,7 +190,7 @@ namespace OasxLauncher
                 Size = new Size(382, 23), Font = new Font("Microsoft YaHei UI", 10F)
             };
             _detail = new Label {
-                Text = "连接稳定版发布源", Location = new Point(24, 117),
+                Text = "", Location = new Point(24, 117),
                 Size = new Size(382, 19), ForeColor = Color.FromArgb(151, 170, 186)
             };
             _progress = new ProgressBar {
@@ -141,19 +240,14 @@ namespace OasxLauncher
                     Close();
                     return;
                 }
-                if (ReadText("oasx-channel.txt") == "test")
-                {
-                    SetStatus("正在启动测试版", "");
-                    await Task.Delay(2500);
-                    LaunchInstalled();
-                    return;
-                }
-
-                var release = await GetLatestReleaseAsync();
+                var channel = UpdateChannel.Read(_installDir);
+                SetStatus("正在检查更新", channel == "test" ? "测试版" : "稳定版");
+                var release = await GetLatestReleaseAsync(channel);
                 if (_finished) return;
                 if (_skipRequested) { LaunchInstalled(); return; }
                 var installedTag = ReadText("oasx-release.txt");
-                if (!IsNewer(release.Tag, installedTag))
+                if (ReadText("oasx-channel.txt") == channel &&
+                    !IsNewer(release.Tag, installedTag))
                 {
                     SetStatus("已是最新版本", installedTag);
                     await Task.Delay(500);
@@ -189,7 +283,7 @@ namespace OasxLauncher
                 SetStatus("正在准备更新", "解压并检查程序文件…");
                 var stageDir = Path.Combine(_workRoot, "stage");
                 await Task.Run(() => ExtractSafely(zipPath, stageDir));
-                if (ReadStageText(stageDir, "oasx-channel.txt") != "stable" ||
+                if (ReadStageText(stageDir, "oasx-channel.txt") != channel ||
                     ReadStageText(stageDir, "oasx-release.txt") != release.Tag ||
                     !File.Exists(Path.Combine(stageDir, AppName)) ||
                     !File.Exists(Path.Combine(stageDir, "OASX.Launcher.exe")) ||
@@ -231,32 +325,70 @@ namespace OasxLauncher
             }
         }
 
-        private async Task<ReleaseInfo> GetLatestReleaseAsync()
+        private async Task<ReleaseInfo> GetLatestReleaseAsync(string channel)
         {
             using (var client = CreateClient())
             {
-                var json = await client.DownloadStringTaskAsync(new Uri(ReleaseApi));
+                string json;
+                try
+                {
+                    json = await client.DownloadStringTaskAsync(new Uri(
+                        channel == "test" ? TestReleaseApi : ReleaseApi));
+                }
+                catch (WebException error)
+                {
+                    var response = error.Response as HttpWebResponse;
+                    if (channel == "test" && response != null &&
+                        response.StatusCode == HttpStatusCode.NotFound)
+                        throw new InvalidDataException("测试版暂未发布。");
+                    if (channel != "stable" || response == null ||
+                        response.StatusCode != HttpStatusCode.NotFound) throw;
+                    json = await client.DownloadStringTaskAsync(new Uri(LegacyReleaseApi));
+                }
                 var root = new JavaScriptSerializer().DeserializeObject(json)
                     as Dictionary<string, object>;
                 if (root == null) throw new InvalidDataException("无法解析发布信息。");
                 var tag = ReadField(root, "tag_name");
                 var assets = root["assets"] as object[];
                 if (assets == null) throw new InvalidDataException("发布包不存在。");
+                ReleaseInfo newest = null;
+                DateTime newestAt = DateTime.MinValue;
                 foreach (var raw in assets)
                 {
                     var asset = raw as Dictionary<string, object>;
                     if (asset == null) continue;
                     var name = ReadField(asset, "name");
+                    if (channel == "test" && !name.StartsWith("oasx_test_",
+                            StringComparison.OrdinalIgnoreCase)) continue;
+                    if (channel == "stable" && !name.StartsWith("oasx_v",
+                            StringComparison.OrdinalIgnoreCase)) continue;
                     if (!name.StartsWith("oasx_", StringComparison.OrdinalIgnoreCase) ||
                         !name.EndsWith("_windows.zip", StringComparison.OrdinalIgnoreCase))
                         continue;
+                    if (channel == "test")
+                    {
+                        tag = name.Substring("oasx_test_".Length,
+                            name.Length - "oasx_test_".Length - "_windows.zip".Length);
+                        if (tag.Length != 40 || !tag.All(Uri.IsHexDigit)) continue;
+                    }
+                    else
+                    {
+                        tag = name.Substring("oasx_".Length,
+                            name.Length - "oasx_".Length - "_windows.zip".Length);
+                    }
                     var digest = ReadField(asset, "digest");
                     if (!digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase) ||
                         digest.Length != 71)
                         throw new InvalidDataException("发布包没有有效的 SHA-256 校验值。");
-                    return new ReleaseInfo(tag,
+                    DateTime createdAt;
+                    if (!DateTime.TryParse(ReadField(asset, "created_at"), out createdAt))
+                        continue;
+                    if (newest != null && createdAt <= newestAt) continue;
+                    newest = new ReleaseInfo(tag,
                         ReadField(asset, "browser_download_url"), digest.Substring(7));
+                    newestAt = createdAt;
                 }
+                if (newest != null) return newest;
                 throw new InvalidDataException("未找到 Windows 发布包。");
             }
         }

@@ -439,6 +439,8 @@ class I18n {
       updatePreparing = 'update_preparing',
       updateCheckFailed = 'update_check_failed',
       updateViaLauncher = 'update_via_launcher',
+      updateChannel = 'update_channel',
+      configure = 'configure',
       updateDownloadFailed = 'update_download_failed',
       updateDownloadProgress = 'update_download_progress',
       updateDownloadProgressUnknown = 'update_download_progress_unknown',

@@ -15,9 +15,12 @@ function New-Fixture([string]$name) {
         (Join-Path $install 'config'), (Join-Path $install 'data'),
         (Join-Path $stage 'data') -Force | Out-Null
     Set-Content (Join-Path $install 'oasx.exe') 'old'
+    Set-Content (Join-Path $install 'OASX.Launcher.exe') 'old launcher'
+    Set-Content (Join-Path $install 'oasx-update-channel.txt') 'test'
     Set-Content (Join-Path $install 'data/asset.txt') 'old data'
     Set-Content (Join-Path $install 'config/user.json') 'keep me'
-    Set-Content (Join-Path $install 'package-files.txt') @('oasx.exe', 'data', 'package-files.txt')
+    Set-Content (Join-Path $install 'package-files.txt') @(
+        'oasx.exe', 'OASX.Launcher.exe', 'data', 'package-files.txt')
     Set-Content (Join-Path $stage 'oasx.exe') 'new'
     Set-Content (Join-Path $stage 'data/asset.txt') 'new data'
     Set-Content (Join-Path $stage 'OASX.Launcher.exe') 'launcher'
@@ -37,6 +40,8 @@ try {
         -InstallDir $success.Install -WorkRoot $success.Work -LauncherPid 0 -TestMode
     Assert ($LASTEXITCODE -eq 0) 'Successful update returned an error.'
     Assert ((Get-Content (Join-Path $success.Install 'oasx.exe') -Raw).Trim() -eq 'new') 'App was not replaced.'
+    Assert ((Get-Content (Join-Path $success.Install 'OASX.Launcher.exe') -Raw).Trim() -eq 'launcher') 'Launcher was not replaced.'
+    Assert ((Get-Content (Join-Path $success.Install 'oasx-update-channel.txt') -Raw).Trim() -eq 'test') 'Channel preference changed.'
     Assert ((Get-Content (Join-Path $success.Install 'data/asset.txt') -Raw).Trim() -eq 'new data') 'Data was not replaced.'
     Assert ((Get-Content (Join-Path $success.Install 'config/user.json') -Raw).Trim() -eq 'keep me') 'User config changed.'
     Assert (-not (Test-Path $success.Work)) 'Successful update left temporary files.'
@@ -47,6 +52,8 @@ try {
         -TestMode -FailAfterCopy
     Assert ($LASTEXITCODE -eq 1) 'Simulated failure returned success.'
     Assert ((Get-Content (Join-Path $failure.Install 'oasx.exe') -Raw).Trim() -eq 'old') 'Rollback did not restore the app.'
+    Assert ((Get-Content (Join-Path $failure.Install 'OASX.Launcher.exe') -Raw).Trim() -eq 'old launcher') 'Rollback did not restore the launcher.'
+    Assert ((Get-Content (Join-Path $failure.Install 'oasx-update-channel.txt') -Raw).Trim() -eq 'test') 'Rollback changed channel preference.'
     Assert ((Get-Content (Join-Path $failure.Install 'data/asset.txt') -Raw).Trim() -eq 'old data') 'Rollback did not restore data.'
     Assert ((Get-Content (Join-Path $failure.Install 'config/user.json') -Raw).Trim() -eq 'keep me') 'Rollback changed user config.'
     Assert (-not (Test-Path $failure.Work)) 'Rollback left temporary files.'

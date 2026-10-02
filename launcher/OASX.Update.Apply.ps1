@@ -10,6 +10,7 @@ $ErrorActionPreference = 'Stop'
 $stage = Join-Path $WorkRoot 'stage'
 $backup = Join-Path $WorkRoot 'backup'
 $app = Join-Path $InstallDir 'oasx.exe'
+$launcher = Join-Path $InstallDir 'OASX.Launcher.exe'
 $installed = @()
 $saved = @()
 $roots = @()
@@ -82,14 +83,14 @@ try {
         Copy-Item -LiteralPath (Join-Path $stage $name) -Destination (Join-Path $InstallDir $name) -Recurse -Force
     }
 
-    if (-not (Test-Path -LiteralPath $app)) { throw 'Updated OASX executable is missing.' }
+    if (-not (Test-Path -LiteralPath $app) -or
+        -not (Test-Path -LiteralPath $launcher)) {
+        throw 'Updated OASX package is incomplete.'
+    }
     if ($FailAfterCopy) { throw 'Simulated failure after copying the new package.' }
     if (-not $TestMode) {
-        $process = Start-Process -FilePath $app -ArgumentList '--skip-parent-console' `
+        $process = Start-Process -FilePath $launcher `
             -WorkingDirectory $InstallDir -PassThru
-        if ($process.WaitForExit(2000)) {
-            throw 'Updated OASX closed immediately after launch.'
-        }
     }
 
     # The new process is running; downloaded ZIP, extraction and backup are no
@@ -117,7 +118,7 @@ catch {
 
     if ($rollbackOk) {
         if (-not $TestMode -and (Test-Path -LiteralPath $app)) {
-            Start-Process -FilePath $app -ArgumentList '--skip-parent-console' `
+            Start-Process -FilePath (Join-Path $InstallDir 'OASX.Launcher.exe') `
                 -WorkingDirectory $InstallDir | Out-Null
         }
         Remove-Item -LiteralPath $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue

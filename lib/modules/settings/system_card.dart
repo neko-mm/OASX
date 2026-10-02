@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:styled_widget/styled_widget.dart';
@@ -94,6 +96,25 @@ class SystemSettingsCard extends StatelessWidget {
               ? const SizedBox.shrink()
               : const CheckUpdateButton(),
         ),
+        if (PlatformUtils.isWindows)
+          SettingItem(
+            left: Text(I18n.updateChannel.tr),
+            right: OutlinedButton(
+              onPressed: () async {
+                final directory = File(Platform.resolvedExecutable).parent.path;
+                final launcher = File('$directory${Platform.pathSeparator}'
+                    'OASX.Launcher.exe');
+                if (!await launcher.exists()) return;
+                await Process.start(
+                  launcher.path,
+                  ['--settings'],
+                  workingDirectory: directory,
+                  mode: ProcessStartMode.detached,
+                );
+              },
+              child: Text(I18n.configure.tr),
+            ),
+          ),
       ],
     );
   }

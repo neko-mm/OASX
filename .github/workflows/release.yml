@@ -83,6 +83,50 @@ jobs:
           path: build/windows/x64/runner/Release/
           retention-days: 7
 
+  publish_master_windows:
+    name: Publish Master Windows
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs: warm_flutter_cache
+    runs-on: ubuntu-latest
+    concurrency:
+      group: oasx-master-publication
+      cancel-in-progress: false
+    steps:
+      - name: Download Windows test package
+        uses: actions/download-artifact@v4
+        with:
+          name: oasx-master-test-${{ github.sha }}
+          path: oasx-test-package
+
+      - name: Publish test update
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq .sha)
+          if [[ "$current" != "$GITHUB_SHA" ]]; then
+            echo 'Newer master commit exists; skip this package.'
+            exit 0
+          fi
+          asset="oasx_test_${GITHUB_SHA}_windows.zip"
+          (cd oasx-test-package && zip -q -r "../$asset" .)
+          if ! gh release view oasx-master --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create oasx-master --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title 'OASX 测试版' \
+              --notes 'master 分支的 Windows 测试包，由云构建自动更新。' \
+              --prerelease
+          fi
+          gh release upload oasx-master "$asset" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+          old_assets=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/oasx-master" \
+            --jq '.assets[].name | select(startswith("oasx_test_") and . != "'"$asset"'")')
+          while IFS= read -r old; do
+            [[ -z "$old" ]] && continue
+            gh release delete-asset oasx-master "$old" \
+              --repo "$GITHUB_REPOSITORY" --yes
+          done <<< "$old_assets"
+
   create_release:
     name: Create Release
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -275,6 +319,9 @@ jobs:
     name: Publish Personal Windows
     if: ${{ github.ref == 'refs/heads/personal' }}
     runs-on: windows-2022
+    concurrency:
+      group: oasx-personal-publication
+      cancel-in-progress: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -313,6 +360,11 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
         shell: pwsh
         run: |
+          $current = gh api "repos/$env:GITHUB_REPOSITORY/commits/personal" --jq .sha
+          if ($current -ne "$env:GITHUB_SHA") {
+            Write-Host 'Newer personal commit exists; skip this package.'
+            exit 0
+          }
           $tag = "${{ steps.package.outputs.tag }}"
           if (-not (gh release view $tag --repo "$env:GITHUB_REPOSITORY" 2>$null)) {
             gh release create $tag `
@@ -325,6 +377,28 @@ jobs:
           gh release upload $tag "${{ steps.package.outputs.asset_path }}" `
             --repo "$env:GITHUB_REPOSITORY" --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Failed to upload personal release.' }
+          if (-not (gh release view oasx-personal --repo "$env:GITHUB_REPOSITORY" 2>$null)) {
+            gh release create oasx-personal `
+              --repo "$env:GITHUB_REPOSITORY" `
+              --target "$env:GITHUB_SHA" `
+              --title 'OASX 稳定版' `
+              --notes 'personal 分支的 Windows 稳定包，由云构建自动更新。' `
+              --latest=false
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to create stable channel release.' }
+          }
+          gh release upload oasx-personal "${{ steps.package.outputs.asset_path }}" `
+            --repo "$env:GITHUB_REPOSITORY" --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload stable channel package.' }
+          $assetName = Split-Path -Leaf "${{ steps.package.outputs.asset_path }}"
+          $oldAssets = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/oasx-personal" `
+            --jq '.assets[].name | select(startswith("oasx_v"))'
+          foreach ($old in $oldAssets) {
+            if ($old -and $old -ne $assetName) {
+              gh release delete-asset oasx-personal $old `
+                --repo "$env:GITHUB_REPOSITORY" --yes
+              if ($LASTEXITCODE -ne 0) { throw 'Failed to remove old stable package.' }
+            }
+          }
 
   build_android:
     name: Build Android

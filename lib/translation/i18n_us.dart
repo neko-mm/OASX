@@ -110,6 +110,8 @@ final Map<String, String> _us_ui = {
   I18n.updateCheckFailed: 'Failed to check for updates',
   I18n.updateViaLauncher:
       'Close OASX and reopen it with OASX Launcher to check for updates',
+  I18n.updateChannel: 'Update channel',
+  I18n.configure: 'Configure',
   I18n.updateDownloadFailed: 'Failed to download the update package',
   I18n.updateDownloadProgress: 'Downloaded @received / @total (@percent%)',
   I18n.updateDownloadProgressUnknown: 'Downloaded @received',

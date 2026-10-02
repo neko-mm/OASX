@@ -109,6 +109,8 @@ final Map<String, String> _cn_ui = {
   I18n.updatePreparing: '正在准备安装更新',
   I18n.updateCheckFailed: '检查更新失败',
   I18n.updateViaLauncher: '请关闭 OASX，再通过 OASX 启动器打开；启动时会自动检查更新',
+  I18n.updateChannel: '更新渠道',
+  I18n.configure: '设置',
   I18n.updateDownloadFailed: '下载更新失败，请稍后重试',
   I18n.updateDownloadProgress: '已下载 @received / @total (@percent%)',
   I18n.updateDownloadProgressUnknown: '已下载 @received',
