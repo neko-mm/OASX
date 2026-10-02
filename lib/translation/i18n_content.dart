@@ -173,6 +173,12 @@ class I18n {
       homeTasksTab = 'home_tasks_tab',
       homeParamsTab = 'home_params_tab';
   static const String homeStatsTab = 'home_stats_tab',
+      homeClicksTab = 'home_clicks_tab',
+      homeClicksEmpty = 'home_clicks_empty',
+      homeClicksLoading = 'home_clicks_loading',
+      homeClicksRefresh = 'home_clicks_refresh',
+      homeClicksTruncated = 'home_clicks_truncated',
+      homeClicksUnknownTask = 'home_clicks_unknown_task',
       homeStatsGeneratedAt = 'home_stats_generated_at',
       homeStatsRetentionDays = 'home_stats_retention_days';
   static const String homeStatsToday = 'home_stats_today',

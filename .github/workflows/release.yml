@@ -56,6 +56,26 @@ jobs:
           echo "Pub cache key: ${{ steps.flutter-action.outputs.PUB-CACHE-KEY }}"
           echo "Pub cache hit: ${{ steps.flutter-action.outputs.PUB-CACHE-HIT }}"
 
+      - name: Check click trace UI
+        if: matrix.label == 'Linux'
+        shell: bash
+        run: |
+          flutter test test/click_trace_models_test.dart
+          flutter analyze lib/modules/home/models/click_trace_models.dart lib/modules/home/widgets/click_trace_panel.dart lib/modules/home/widgets/active_config_panel.dart lib/modules/home/widgets/workbench_sidebar_panel.dart lib/modules/home/controllers/dashboard_controller.dart
+
+      - name: Build Windows test package
+        if: matrix.label == 'Windows'
+        shell: pwsh
+        run: flutter build windows --release
+
+      - name: Upload Windows test package
+        if: matrix.label == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: oasx-master-test-${{ github.sha }}
+          path: build/windows/x64/runner/Release/
+          retention-days: 7
+
   create_release:
     name: Create Release
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}

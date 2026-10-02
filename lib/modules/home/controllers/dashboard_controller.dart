@@ -72,11 +72,14 @@ enum HomeWorkbenchTab {
   tasks,
   stats,
   logs,
+  clicks,
 }
 
 /// Returns whether the tab belongs to the right desktop sidebar.
 bool isHomeWorkbenchSidebarTab(HomeWorkbenchTab value) {
-  return value == HomeWorkbenchTab.stats || value == HomeWorkbenchTab.logs;
+  return value == HomeWorkbenchTab.stats ||
+      value == HomeWorkbenchTab.logs ||
+      value == HomeWorkbenchTab.clicks;
 }
 
 /// Records which workbench tab opened the task parameter editor.
@@ -107,6 +110,7 @@ List<HomeWorkbenchTab> resolveHomeWorkbenchTabs(
     HomeWorkbenchTab.tasks,
     HomeWorkbenchTab.logs,
     HomeWorkbenchTab.stats,
+    HomeWorkbenchTab.clicks,
   ];
 }
 
@@ -120,6 +124,7 @@ List<HomeWorkbenchTab> resolveHomeWorkbenchSidebarTabs(
   return const [
     HomeWorkbenchTab.logs,
     HomeWorkbenchTab.stats,
+    HomeWorkbenchTab.clicks,
   ];
 }
 

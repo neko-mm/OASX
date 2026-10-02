@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
 import 'package:oasx/modules/home/models/home_workbench_layout.dart';
+import 'package:oasx/modules/home/widgets/click_trace_panel.dart';
 import 'package:oasx/modules/home/widgets/log_center_panel.dart';
 import 'package:oasx/modules/home/widgets/statistics_panel.dart';
 import 'package:oasx/translation/i18n_content.dart';
@@ -57,6 +58,8 @@ class WorkbenchSidebarPanel extends StatelessWidget {
                   HomeWorkbenchTab.stats => const ScriptStatisticsPanel(),
                   HomeWorkbenchTab.logs =>
                     LogCenterPanel(scriptName: scriptName),
+                  HomeWorkbenchTab.clicks =>
+                    ClickTracePanel(scriptName: scriptName),
                   _ => const SizedBox.shrink(),
                 },
               ),
@@ -72,6 +75,7 @@ class WorkbenchSidebarPanel extends StatelessWidget {
     return switch (value) {
       HomeWorkbenchTab.stats => I18n.homeStatsTab.tr,
       HomeWorkbenchTab.logs => I18n.log.tr,
+      HomeWorkbenchTab.clicks => I18n.homeClicksTab.tr,
       _ => '',
     };
   }
