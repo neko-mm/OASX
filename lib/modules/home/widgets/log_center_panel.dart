@@ -86,44 +86,42 @@ class _LogCenterPanelState extends State<LogCenterPanel> {
   @override
   Widget build(BuildContext context) {
     if (widget.scriptName.trim().isEmpty) {
-      return Card(child: Center(child: Text(I18n.homeNoScriptSelected.tr)));
+      return Center(child: Text(I18n.homeNoScriptSelected.tr));
     }
     final controller = _controller;
     if (controller == null) {
-      return Card(child: Center(child: Text(I18n.homeNoLog.tr)));
+      return Center(child: Text(I18n.homeNoLog.tr));
     }
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LogCenterToolbar(
-              controller: controller,
-              onToggleLineWrap: () => _handleLogCenterLineWrapToggle(this),
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LogCenterToolbar(
+            controller: controller,
+            onToggleLineWrap: () => _handleLogCenterLineWrapToggle(this),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Obx(
+              () => controller.activeTab.value == ScriptLogBrowserTab.info
+                  ? LogCenterInfoView(
+                      controller: controller,
+                      scrollController: _scrollController!,
+                      horizontalScrollController:
+                          _horizontalScrollController!,
+                      onScrollNotification: _handleScrollNotification,
+                    )
+                  : LogCenterErrorView(
+                      controller: controller,
+                      listScrollController: _errorListScrollController!,
+                      detailScrollController: _errorDetailScrollController!,
+                      detailHorizontalScrollController:
+                          _errorDetailHorizontalScrollController!,
+                    ),
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Obx(
-                () => controller.activeTab.value == ScriptLogBrowserTab.info
-                    ? LogCenterInfoView(
-                        controller: controller,
-                        scrollController: _scrollController!,
-                        horizontalScrollController:
-                            _horizontalScrollController!,
-                        onScrollNotification: _handleScrollNotification,
-                      )
-                    : LogCenterErrorView(
-                        controller: controller,
-                        listScrollController: _errorListScrollController!,
-                        detailScrollController: _errorDetailScrollController!,
-                        detailHorizontalScrollController:
-                            _errorDetailHorizontalScrollController!,
-                      ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

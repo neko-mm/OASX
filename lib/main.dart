@@ -16,6 +16,7 @@ import 'package:oasx/service/oas_source_service.dart';
 import 'package:oasx/service/script_service.dart';
 import 'package:oasx/service/system_tray_service.dart';
 import 'package:oasx/service/theme_service.dart';
+import 'package:oasx/service/theme_service.dart';
 import 'package:oasx/service/websocket_service.dart';
 import 'package:oasx/service/window_service.dart';
 import 'package:oasx/translation/i18n.dart';
@@ -42,10 +43,11 @@ class OASXApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localeService = Get.find<LocaleService>();
+    final themeService = Get.find<ThemeService>();
 
     return ResponsiveApp(
       builder: (context) {
-        return GetMaterialApp(
+        return Obx(() => GetMaterialApp(
           debugShowCheckedModeBanner: false,
           builder: (context, child) => AppBackground(
             child: DevicePreview.appBuilder(context, child),
@@ -59,7 +61,8 @@ class OASXApp extends StatelessWidget {
           getPages: Routes.routes,
           theme: lightTheme,
           darkTheme: darkTheme,
-        );
+          themeMode: themeService.themeMode,
+        ));
       },
     );
   }

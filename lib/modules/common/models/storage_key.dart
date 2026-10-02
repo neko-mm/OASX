@@ -1,5 +1,6 @@
 enum StorageKey {
   dark,
+  visualThemeVersion,
   language,
   username,
   password,

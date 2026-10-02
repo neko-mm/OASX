@@ -4,6 +4,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:oasx/config/theme.dart';
 import 'package:oasx/modules/common/models/storage_key.dart';
 import 'package:oasx/service/system_tray_service.dart';
+import 'package:oasx/utils/platform_utils.dart';
 
 class ThemeService extends GetxService {
   final _storage = GetStorage();
@@ -17,7 +18,16 @@ class ThemeService extends GetxService {
 
   @override
   void onInit() {
-    _dark.value = _storage.read(StorageKey.dark.name) ?? true;
+    // Apply the approved dark design once to existing light-theme installs.
+    // Any theme choice made afterward stays under the user's control.
+    final visualVersion = _storage.read(StorageKey.visualThemeVersion.name);
+    if (PlatformUtils.isWindows &&
+        (visualVersion is! int || visualVersion < 1)) {
+      _dark.value = true;
+      _storage.write(StorageKey.visualThemeVersion.name, 1);
+    } else {
+      _dark.value = _storage.read(StorageKey.dark.name) ?? true;
+    }
     switchTheme(_dark.value);
     super.onInit();
   }

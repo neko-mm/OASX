@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
 import 'package:oasx/modules/common/widgets/glass_panel.dart';
+import 'package:oasx/modules/common/widgets/underlined_tab.dart';
 import 'package:oasx/modules/home/models/config_model.dart';
 import 'package:oasx/modules/home/models/home_workbench_layout.dart';
 import 'package:oasx/modules/home/widgets/config_state_indicator.dart';
@@ -101,18 +102,14 @@ class ActiveConfigPanel extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 4,
+                runSpacing: 4,
                 children: tabs
                     .map(
-                      (tab) => ChoiceChip(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        label: Text(_tabLabel(tab)),
-                        showCheckmark: false,
+                      (tab) => UnderlinedTab(
+                        label: _tabLabel(tab),
                         selected: currentTab == tab,
-                        onSelected: (_) => onChangeTab(tab),
+                        onTap: () => onChangeTab(tab),
                       ),
                     )
                     .toList(),

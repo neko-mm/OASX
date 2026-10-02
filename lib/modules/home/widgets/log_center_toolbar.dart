@@ -78,6 +78,15 @@ class LogCenterToolbar extends StatelessWidget {
     return Obx(
       () => SegmentedButton<ScriptLogBrowserTab>(
         showSelectedIcon: false,
+        style: ButtonStyle(
+          shape: const WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          ),
+          visualDensity: VisualDensity.compact,
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 8),
+          ),
+        ),
         segments: [
           ButtonSegment(
             value: ScriptLogBrowserTab.info,
