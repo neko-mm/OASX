@@ -16,7 +16,6 @@ import 'package:oasx/service/oas_source_service.dart';
 import 'package:oasx/service/script_service.dart';
 import 'package:oasx/service/system_tray_service.dart';
 import 'package:oasx/service/theme_service.dart';
-import 'package:oasx/service/theme_service.dart';
 import 'package:oasx/service/websocket_service.dart';
 import 'package:oasx/service/window_service.dart';
 import 'package:oasx/translation/i18n.dart';
