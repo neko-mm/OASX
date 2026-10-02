@@ -217,6 +217,33 @@ jobs:
             throw 'Launcher could not fetch and stage the Git test package.'
           }
 
+      - name: Verify Git package replacement
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP ('oasx-git-apply-' + [guid]::NewGuid().ToString('N'))
+          $stage = Join-Path $root 'stage'
+          $install = Join-Path $env:RUNNER_TEMP ('oasx-git-install-' + [guid]::NewGuid().ToString('N'))
+          try {
+            git clone --quiet --depth 1 --single-branch --branch oasx-bin-test `
+              "https://github.com/$env:GITHUB_REPOSITORY.git" $stage
+            if ($LASTEXITCODE -ne 0) { throw 'Could not clone Git package for replacement test.' }
+            New-Item -ItemType Directory -Path $install -Force | Out-Null
+            Copy-Item -Path (Join-Path $env:GITHUB_WORKSPACE 'test-package/*') `
+              -Destination $install -Recurse -Force
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+              -File (Join-Path $stage 'OASX.Update.Apply.ps1') `
+              -InstallDir $install -WorkRoot $root -LauncherPid 0 -TestMode
+            if ($LASTEXITCODE -ne 0) { throw 'Git package replacement failed.' }
+            $installed = (Get-Content -LiteralPath (Join-Path $install 'oasx-release.txt') -Raw).Trim()
+            if ($installed -ne "$env:GITHUB_SHA") { throw 'Installed Git package version mismatch.' }
+            if (!(Test-Path (Join-Path $install 'oasx-update.log'))) {
+              throw 'Replacement produced no diagnostic log.'
+            }
+          }
+          finally {
+            Remove-Item -LiteralPath $root, $install -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
   create_release:
     name: Create Release
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}

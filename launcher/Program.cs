@@ -377,6 +377,7 @@ namespace OasxLauncher
         private async Task RunGitUpdateAsync(string git)
         {
             SetStatus("正在拉取更新", "测试版");
+            LogUpdate("开始 Git 拉取");
             _workRoot = Path.Combine(Path.GetTempPath(),
                 "oasx-update-" + Guid.NewGuid().ToString("N"));
             var stageDir = Path.Combine(_workRoot, "stage");
@@ -386,6 +387,7 @@ namespace OasxLauncher
             if (_skipRequested) { LaunchInstalled(); return; }
             if (revision == null)
             {
+                LogUpdate("Git 已是最新版本");
                 SetStatus("已是最新版本", ReadText("oasx-release.txt"));
                 await Task.Delay(500);
                 LaunchInstalled();
@@ -397,6 +399,7 @@ namespace OasxLauncher
                 !File.Exists(Path.Combine(stageDir, "OASX.Launcher.exe")) ||
                 !File.Exists(Path.Combine(stageDir, "package-files.txt")))
                 throw new InvalidDataException("Git 更新内容不完整。");
+            LogUpdate("Git 文件已暂存，版本 " + revision);
             SetStatus("正在安装更新", "");
             StartApply(Path.Combine(stageDir, "OASX.Update.Apply.ps1"));
         }
@@ -420,9 +423,22 @@ namespace OasxLauncher
                 UseShellExecute = false, CreateNoWindow = true,
                 WorkingDirectory = Path.GetTempPath()
             };
-            Process.Start(psi);
+            LogUpdate("正在启动替换脚本");
+            using (var apply = Process.Start(psi))
+                LogUpdate("替换脚本已启动，进程 " + apply.Id);
             _finished = true;
             Close();
+        }
+
+        private void LogUpdate(string message)
+        {
+            try
+            {
+                File.AppendAllText(Path.Combine(_installDir, "oasx-update.log"),
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + message +
+                    Environment.NewLine, Encoding.UTF8);
+            }
+            catch { /* Logging must not interrupt the update. */ }
         }
 
         internal void VerifyGitPackage()
