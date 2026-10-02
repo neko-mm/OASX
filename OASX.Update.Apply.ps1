@@ -14,6 +14,15 @@ $launcher = Join-Path $InstallDir 'OASX.Launcher.exe'
 $installed = @()
 $saved = @()
 $roots = @()
+$traceFile = Join-Path $InstallDir 'oasx-update.log'
+
+function Trace([string]$message) {
+    try {
+        Add-Content -LiteralPath $traceFile -Encoding UTF8 -Value `
+            ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' | ' + $message)
+    }
+    catch { }
+}
 
 function Read-ManagedRoots([string]$manifest) {
     if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) { return @() }
@@ -45,6 +54,7 @@ function Show-Failure([string]$message) {
 }
 
 try {
+    Trace '替换脚本开始执行'
     if ($LauncherPid -gt 0) {
         $exited = $false
         for ($i = 0; $i -lt 60; $i++) {
@@ -56,6 +66,7 @@ try {
         }
         if (-not $exited) { throw 'Timed out waiting for launcher to exit.' }
     }
+    Trace '启动器已退出'
 
     $newRoots = @(Read-ManagedRoots (Join-Path $stage 'package-files.txt'))
     if ($newRoots.Count -eq 0) { throw 'The update package has no managed file list.' }
@@ -77,11 +88,13 @@ try {
             $saved += $name
         }
     }
+    Trace '旧文件已备份'
 
     foreach ($name in $newRoots) {
         $installed += $name
         Copy-Item -LiteralPath (Join-Path $stage $name) -Destination (Join-Path $InstallDir $name) -Recurse -Force
     }
+    Trace '新文件已复制'
 
     if (-not (Test-Path -LiteralPath $app) -or
         -not (Test-Path -LiteralPath $launcher)) {
@@ -91,6 +104,7 @@ try {
     if (-not $TestMode) {
         $process = Start-Process -FilePath $launcher `
             -WorkingDirectory $InstallDir -PassThru
+        Trace "新版启动器已启动，进程 $($process.Id)"
     }
 
     # The new process is running; downloaded ZIP, extraction and backup are no
@@ -100,6 +114,7 @@ try {
 }
 catch {
     $failure = $_.Exception.Message
+    Trace "替换失败：$failure"
     $rollbackOk = $true
     try {
         foreach ($name in $installed) {
@@ -117,6 +132,7 @@ catch {
     }
 
     if ($rollbackOk) {
+        Trace '旧版本已恢复'
         if (-not $TestMode -and (Test-Path -LiteralPath $app)) {
             Start-Process -FilePath (Join-Path $InstallDir 'OASX.Launcher.exe') `
                 -WorkingDirectory $InstallDir | Out-Null
@@ -126,6 +142,7 @@ catch {
         else { Show-Failure "更新失败，已恢复并启动旧版本。`n$failure" }
     }
     else {
+        Trace '恢复旧版本失败'
         if ($TestMode) { Write-Host "Rollback failed: $failure" }
         else { Show-Failure "更新失败，无法自动恢复。备份保留在：`n$backup`n$failure" }
     }
