@@ -57,12 +57,12 @@ jobs:
           echo "Pub cache key: ${{ steps.flutter-action.outputs.PUB-CACHE-KEY }}"
           echo "Pub cache hit: ${{ steps.flutter-action.outputs.PUB-CACHE-HIT }}"
 
-      - name: Check click trace UI
+      - name: Check click trace and updater UI
         if: matrix.label == 'Linux'
         shell: bash
         run: |
           flutter test test/click_trace_models_test.dart
-          flutter analyze lib/modules/home/models/click_trace_models.dart lib/modules/home/widgets/click_trace_panel.dart lib/modules/home/widgets/active_config_panel.dart lib/modules/home/widgets/workbench_sidebar_panel.dart lib/modules/home/controllers/dashboard_controller.dart
+          flutter analyze lib/modules/home/models/click_trace_models.dart lib/modules/home/widgets/click_trace_panel.dart lib/modules/home/widgets/active_config_panel.dart lib/modules/home/widgets/workbench_sidebar_panel.dart lib/modules/home/controllers/dashboard_controller.dart lib/service/app_update_service.dart lib/service/app_update/app_version_utils.dart lib/service/app_update/installers/windows_update_installer.dart lib/translation/i18n_content.dart lib/translation/cn_parts/cn_ui.dart lib/translation/i18n_us.dart
 
       - name: Build Windows test package
         if: matrix.label == 'Windows'

@@ -50,6 +50,15 @@ class AppUpdateService extends GetxService {
     if (isCheckingForUpdates.value) {
       return;
     }
+    if (Platform.isWindows &&
+        File('${File(Platform.resolvedExecutable).parent.path}'
+                '${Platform.pathSeparator}OASX.Launcher.exe')
+            .existsSync()) {
+      if (showTip) {
+        Get.snackbar(I18n.tip.tr, I18n.updateViaLauncher.tr);
+      }
+      return;
+    }
     isCheckingForUpdates.value = true;
     try {
       if (!kReleaseMode || _shouldSkipRemoteCheck(forceCheck)) {
