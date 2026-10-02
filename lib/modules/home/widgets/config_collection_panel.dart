@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:oasx/modules/common/models/config_drag_payload.dart';
+import 'package:oasx/modules/common/widgets/glass_panel.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
 import 'package:oasx/modules/home/models/config_model.dart';
 import 'package:oasx/modules/home/widgets/config_collection_tile.dart';
@@ -81,7 +82,7 @@ class _ConfigCollectionPanelState extends State<ConfigCollectionPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return GlassPanel(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Obx(() {
@@ -170,7 +171,7 @@ class _ConfigCollectionPanelState extends State<ConfigCollectionPanel> {
                     context,
                   ).colorScheme.primaryContainer.withValues(alpha: 0.28)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(3),
             border: Border.all(
               color: isHighlighted
                   ? Theme.of(context).colorScheme.primary

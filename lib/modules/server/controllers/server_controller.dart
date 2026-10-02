@@ -281,7 +281,7 @@ class ServerController extends GetxController with LogMixin {
     return prefetcher.prefetchRepository();
   }
 
-  Future<void> run() async {
+  Future<bool> run() async {
     isDeployLoading.value = true;
     try {
       if (Get.isRegistered<SettingsController>()) {
@@ -300,7 +300,7 @@ class ServerController extends GetxController with LogMixin {
       );
       final prefetched = await prefetchRepository();
       if (!prefetched) {
-        return;
+        return false;
       }
       final pythonConfig = DeployPythonConfig.read(rootPathServer.value);
       final installed = await runShell(
@@ -310,7 +310,7 @@ class ServerController extends GetxController with LogMixin {
         ),
       );
       if (!installed) {
-        return;
+        return false;
       }
       await runShell('echo Start OAS');
       unawaited(
@@ -324,12 +324,12 @@ class ServerController extends GetxController with LogMixin {
 
       final shouldAutoLogin = _resolveAutoLoginAfterDeploy();
       if (!shouldAutoLogin) {
-        return;
+        return true;
       }
 
       final address = _storage.read(StorageKey.address.name) ?? '';
       if (address.isEmpty) {
-        return;
+        return true;
       }
       await Future.delayed(const Duration(seconds: 2));
       await _tryConnect(
@@ -337,6 +337,7 @@ class ServerController extends GetxController with LogMixin {
         retries: 60,
         retryDelay: const Duration(milliseconds: 500),
       );
+      return true;
     } finally {
       isDeployLoading.value = false;
     }

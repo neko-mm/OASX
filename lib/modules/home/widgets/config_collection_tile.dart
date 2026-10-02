@@ -45,8 +45,8 @@ class ConfigCollectionTile extends StatelessWidget {
               (showLinkCheckbox ? 64 : 0);
           final isCompact = constraints.maxWidth < compactThreshold;
           final rowColor = isActive
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.24)
-              : theme.cardColor;
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.18)
+              : Colors.transparent;
           final accentColor = _accentColor(
             context,
             controller.scriptCollectionStateFor(script),
@@ -212,7 +212,7 @@ class _DragCopyLoadingMask extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.68),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(3),
         ),
         child: const Center(
           child: SizedBox(
@@ -234,7 +234,7 @@ class _RegularAccentBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 6,
+      width: 3,
       height: double.infinity,
       child: Center(
         child: FractionallySizedBox(
@@ -243,7 +243,7 @@ class _RegularAccentBar extends StatelessWidget {
             duration: const Duration(milliseconds: 160),
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.zero,
             ),
           ),
         ),

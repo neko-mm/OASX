@@ -6,6 +6,7 @@ import 'package:oasx/modules/common/widgets/add_config_dialog.dart';
 import 'package:oasx/modules/common/widgets/appbar.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
 import 'package:oasx/modules/home/widgets/config_workbench.dart';
+import 'package:oasx/modules/home/widgets/oas_source_dialog.dart';
 import 'package:oasx/modules/server/controllers/server_controller.dart';
 import 'package:oasx/service/script_service.dart';
 import 'package:oasx/translation/i18n_content.dart';
@@ -92,6 +93,7 @@ class _HomeViewState extends State<HomeView> {
         routePath: '/home',
         trailingActions: PlatformUtils.usesDesktopLayout
             ? [
+                if (PlatformUtils.isWindows) const OasSourceButton(),
                 IconButton(
                   tooltip: I18n.setting.tr,
                   onPressed: () => Get.toNamed('/settings'),

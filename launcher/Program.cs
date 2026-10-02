@@ -18,11 +18,26 @@ namespace OasxLauncher
     internal static class Program
     {
         [STAThread]
-        private static void Main()
+        private static void Main(string[] args)
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            if (args.Length == 2 && args[0] == "--wait-for-pid")
+            {
+                int previousPid;
+                if (!int.TryParse(args[1], out previousPid) || previousPid <= 0)
+                    return;
+                try
+                {
+                    using (var previous = Process.GetProcessById(previousPid))
+                    {
+                        if (!previous.WaitForExit(30000)) return;
+                    }
+                }
+                catch (ArgumentException) { /* Previous OASX already exited. */ }
+                catch (InvalidOperationException) { /* Previous OASX already exited. */ }
+            }
             Application.Run(new LauncherForm());
         }
     }
@@ -67,7 +82,7 @@ namespace OasxLauncher
                 Font = new Font("Segoe UI Semibold", 17F), ForeColor = ForeColor
             };
             var subtitle = new Label {
-                Text = "STARTUP  /  UPDATE", Location = new Point(37, 52),
+                Text = "启动与更新", Location = new Point(37, 52),
                 Size = new Size(260, 18), Font = new Font("Segoe UI", 8F),
                 ForeColor = Color.FromArgb(112, 134, 151)
             };
@@ -119,7 +134,7 @@ namespace OasxLauncher
             {
                 if (IsAppRunning())
                 {
-                    SetStatus("OASX 已在运行", "关闭现有窗口后，重新启动才会检查更新。");
+                    SetStatus("OASX 已在运行", "");
                     _skip.Enabled = false;
                     await Task.Delay(1800);
                     _finished = true;
@@ -128,7 +143,7 @@ namespace OasxLauncher
                 }
                 if (ReadText("oasx-channel.txt") == "test")
                 {
-                    SetStatus("测试版", "不检查稳定版更新，正在启动…");
+                    SetStatus("正在启动测试版", "");
                     await Task.Delay(2500);
                     LaunchInstalled();
                     return;
@@ -167,7 +182,7 @@ namespace OasxLauncher
                 if (_skipRequested) { LaunchInstalled(); return; }
 
                 _skip.Enabled = false;
-                SetStatus("正在校验安装包", "SHA-256 完整性检查");
+                SetStatus("正在校验安装包", "");
                 if (!MatchesDigest(zipPath, release.Digest))
                     throw new InvalidDataException("安装包校验失败，已保留旧版本。");
 
@@ -186,7 +201,7 @@ namespace OasxLauncher
                     throw new InvalidDataException("安装包缺少更新程序。");
                 var applyTemp = Path.Combine(_workRoot, "apply.ps1");
                 File.Copy(applySource, applyTemp);
-                SetStatus("正在安装更新", "即将关闭启动器并替换 OASX 文件…");
+                SetStatus("正在安装更新", "");
                 _skip.Enabled = false;
                 var psi = new ProcessStartInfo {
                     FileName = Path.Combine(Environment.GetFolderPath(

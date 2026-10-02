@@ -78,8 +78,13 @@ class TaskStatusRow extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: _foregroundColor(context, rowBackground),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _borderColor(context)),
+          borderRadius: BorderRadius.circular(3),
+          border: Border(
+            left: BorderSide(color: _borderColor(context), width: 3),
+            top: BorderSide(color: _borderColor(context)),
+            right: BorderSide(color: _borderColor(context)),
+            bottom: BorderSide(color: _borderColor(context)),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(10),

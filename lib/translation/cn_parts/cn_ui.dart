@@ -2,6 +2,22 @@
 part of i18n;
 
 final Map<String, String> _cn_ui = {
+  I18n.oasSource: 'OAS 分支',
+  I18n.oasDeployPath: 'deploy.yaml 位置',
+  I18n.oasRepository: '仓库地址',
+  I18n.oasBranch: '分支',
+  I18n.oasChooseFile: '浏览',
+  I18n.oasSaveOnly: '仅保存',
+  I18n.oasSaveAndRestart: '保存并重启 OAS、OASX',
+  I18n.oasSourceSaved: '配置已保存',
+  I18n.oasRestartFailed: 'OAS 启动失败',
+  I18n.oasRunningConfirm: '有任务正在运行。继续将停止任务并重启 OAS、OASX。',
+  I18n.appearance: '外观',
+  I18n.backgroundImage: '背景图片',
+  I18n.defaultBackground: '默认背景',
+  I18n.chooseImage: '选择图片',
+  I18n.clearImage: '清除图片',
+  I18n.panelOpacity: '面板透明度',
   I18n.logOut: '退出登录',
   I18n.zhCn: '简体中文',
   I18n.enUs: 'English',

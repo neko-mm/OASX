@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
+import 'package:oasx/modules/common/widgets/glass_panel.dart';
 import 'package:oasx/modules/home/models/home_workbench_layout.dart';
 import 'package:oasx/modules/home/widgets/click_trace_panel.dart';
 import 'package:oasx/modules/home/widgets/log_center_panel.dart';
@@ -24,7 +25,7 @@ class WorkbenchSidebarPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return GlassPanel(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Obx(() {

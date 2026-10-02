@@ -30,6 +30,20 @@ enum ColorSeed {
   final Color color;
 }
 
+const Color _quietAccent = Color(0xFF8EADB9);
+
+final ColorScheme _lightScheme = ColorScheme.fromSeed(
+  seedColor: _quietAccent,
+  brightness: Brightness.light,
+  surface: const Color(0xFFE8EEF1),
+);
+
+final ColorScheme _darkScheme = ColorScheme.fromSeed(
+  seedColor: _quietAccent,
+  brightness: Brightness.dark,
+  surface: const Color(0xFF1F2B34),
+);
+
 const Map<String, Color> colorSeedMap = {
   'M3 Baseline': Color(0xff6750a4),
   'Indigo': Colors.indigo,
@@ -43,23 +57,47 @@ const Map<String, Color> colorSeedMap = {
 };
 
 ThemeData lightTheme = ThemeData(
-  colorSchemeSeed: ColorSeed.baseColor.color,
+  colorScheme: _lightScheme,
   useMaterial3: true,
   brightness: Brightness.light,
   textTheme: _buildTextTheme(Brightness.light),
-  scaffoldBackgroundColor: const Color.fromRGBO(255, 251, 255, 1),
+  scaffoldBackgroundColor: Colors.transparent,
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Colors.transparent,
+    scrolledUnderElevation: 0,
+  ),
+  cardTheme: CardThemeData(
+    color: Colors.white.withValues(alpha: 0.82),
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(4),
+      side: const BorderSide(color: Color(0x446B8190)),
+    ),
+  ),
   navigationRailTheme: const NavigationRailThemeData(
-      backgroundColor: Color.fromRGBO(255, 251, 255, 1)),
+      backgroundColor: Colors.transparent),
 );
 
 ThemeData darkTheme = ThemeData(
   useMaterial3: true,
-  colorSchemeSeed: ColorSeed.baseColor.color,
+  colorScheme: _darkScheme,
   brightness: Brightness.dark,
   textTheme: _buildTextTheme(Brightness.dark),
-  scaffoldBackgroundColor: const Color.fromRGBO(49, 48, 51, 1),
+  scaffoldBackgroundColor: Colors.transparent,
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Colors.transparent,
+    scrolledUnderElevation: 0,
+  ),
+  cardTheme: CardThemeData(
+    color: const Color(0xFF25333D).withValues(alpha: 0.74),
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(4),
+      side: const BorderSide(color: Color(0x3BB9C8D1)),
+    ),
+  ),
   navigationRailTheme: const NavigationRailThemeData(
-      backgroundColor: Color.fromRGBO(49, 48, 51, 1)),
+      backgroundColor: Colors.transparent),
 );
 
 TextTheme _buildTextTheme(Brightness brightness) {

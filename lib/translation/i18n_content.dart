@@ -1,4 +1,20 @@
 class I18n {
+  static const String oasSource = 'oas_source',
+      oasDeployPath = 'oas_deploy_path',
+      oasRepository = 'oas_repository',
+      oasBranch = 'oas_branch',
+      oasChooseFile = 'oas_choose_file',
+      oasSaveOnly = 'oas_save_only',
+      oasSaveAndRestart = 'oas_save_and_restart',
+      oasSourceSaved = 'oas_source_saved',
+      oasRestartFailed = 'oas_restart_failed',
+      oasRunningConfirm = 'oas_running_confirm',
+      appearance = 'appearance',
+      backgroundImage = 'background_image',
+      defaultBackground = 'default_background',
+      chooseImage = 'choose_image',
+      clearImage = 'clear_image',
+      panelOpacity = 'panel_opacity';
   static const String logOut = 'Log out', zhCn = 'zh-CN', enUs = 'en-US';
   static const String changeTheme = 'Change Theme',
       changeLanguage = 'Change Language',

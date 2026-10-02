@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import 'package:oasx/modules/common/widgets/appbar.dart';
 import 'package:oasx/modules/settings/oas_card.dart';
+import 'package:oasx/modules/settings/appearance_card.dart';
 import 'package:oasx/modules/settings/settings_leave_handler.dart';
 import 'package:oasx/modules/settings/system_card.dart';
 import 'package:oasx/modules/settings/user_card.dart';
@@ -42,6 +43,11 @@ class _SettingsViewState extends State<SettingsView> {
       key: GlobalKey(),
       navTitleBuilder: () => 'OAS${I18n.setting.tr}',
       cardBuilder: () => const OasSettingsCard(),
+    ),
+    _SettingsSection(
+      key: GlobalKey(),
+      navTitleBuilder: () => I18n.appearance.tr,
+      cardBuilder: () => const AppearanceSettingsCard(),
     ),
     _SettingsSection(
       key: GlobalKey(),

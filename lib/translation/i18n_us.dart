@@ -12,6 +12,22 @@ final Map<String, String> _us_base_map = {
 };
 
 final Map<String, String> _us_ui = {
+  I18n.oasSource: 'OAS branch',
+  I18n.oasDeployPath: 'deploy.yaml file',
+  I18n.oasRepository: 'Repository',
+  I18n.oasBranch: 'Branch',
+  I18n.oasChooseFile: 'Browse',
+  I18n.oasSaveOnly: 'Save only',
+  I18n.oasSaveAndRestart: 'Save and restart OAS + OASX',
+  I18n.oasSourceSaved: 'Configuration saved',
+  I18n.oasRestartFailed: 'OAS failed to start',
+  I18n.oasRunningConfirm: 'Tasks are running. Continue to stop them and restart OAS and OASX?',
+  I18n.appearance: 'Appearance',
+  I18n.backgroundImage: 'Background image',
+  I18n.defaultBackground: 'Default background',
+  I18n.chooseImage: 'Choose image',
+  I18n.clearImage: 'Clear image',
+  I18n.panelOpacity: 'Panel opacity',
   I18n.logOut: 'Logout',
   I18n.zhCn: '简体中文',
   I18n.enUs: 'English',

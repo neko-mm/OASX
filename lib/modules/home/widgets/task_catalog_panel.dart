@@ -596,7 +596,7 @@ class _CatalogSectionCard extends StatelessWidget {
               ? cardColor
               : scheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(4),
         side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
       ),
       child: Column(

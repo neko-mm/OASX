@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
+import 'package:oasx/modules/common/widgets/glass_panel.dart';
 import 'package:oasx/modules/home/models/config_model.dart';
 import 'package:oasx/modules/home/models/home_workbench_layout.dart';
 import 'package:oasx/modules/home/widgets/config_state_indicator.dart';
@@ -46,7 +47,7 @@ class ActiveConfigPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return GlassPanel(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Obx(() {

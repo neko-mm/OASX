@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -13,6 +14,7 @@ import 'package:oasx/utils/platform_utils.dart';
 import 'package:window_manager/window_manager.dart';
 
 part 'window_service_exit.dart';
+part 'window_service_restart.dart';
 
 const Size _defaultDesktopWindowSize = Size(1200, 800);
 const Size _minimumWindowsWindowSize = Size(260, 420);

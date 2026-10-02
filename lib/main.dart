@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:oasx/config/theme.dart' show darkTheme, lightTheme;
+import 'package:oasx/modules/common/widgets/app_background.dart';
 import 'package:oasx/modules/settings/controllers/settings_controller.dart';
 import 'package:oasx/service/app_exit_service.dart';
+import 'package:oasx/service/appearance_service.dart';
 import 'package:oasx/service/autostart_service.dart';
 import 'package:oasx/service/app_update_service.dart';
 import 'package:oasx/service/locale_service.dart';
+import 'package:oasx/service/oas_source_service.dart';
 import 'package:oasx/service/script_service.dart';
 import 'package:oasx/service/system_tray_service.dart';
 import 'package:oasx/service/theme_service.dart';
@@ -44,7 +47,9 @@ class OASXApp extends StatelessWidget {
       builder: (context) {
         return GetMaterialApp(
           debugShowCheckedModeBanner: false,
-          builder: DevicePreview.appBuilder,
+          builder: (context, child) => AppBackground(
+            child: DevicePreview.appBuilder(context, child),
+          ),
           scrollBehavior: GlobalBehavior(),
           translations: Messages(),
           locale: localeService.currentLocale,
@@ -72,6 +77,10 @@ Future<void> initService() async {
   await GetStorage.init();
 
   Get.put(SettingsController(), permanent: true);
+  Get.put(AppearanceService(), permanent: true);
+  if (PlatformUtils.isWindows) {
+    Get.put(OasSourceService(), permanent: true);
+  }
   Get.put(AppExitService(), permanent: true);
   if (PlatformUtils.isDesktop) {
     Get.put(SystemTrayService(), permanent: true);

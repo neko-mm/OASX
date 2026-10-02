@@ -49,7 +49,7 @@ class _TaskStatusSwipeContainerState extends State<TaskStatusSwipeContainer> {
             onHorizontalDragCancel: _handleDragCancel,
             onHorizontalDragEnd: (_) => _handleDragEnd(),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(3),
               child: Stack(
                 children: [
                   Positioned.fill(child: widget.background),
