@@ -30,3 +30,10 @@ Windows CI runs `Test-ApplyUpdate.ps1` to check successful replacement,
 preservation of user configuration, cleanup, and rollback. The actual GUI and
 network update flow still need testing on a Windows desktop before merging
 the feature into `personal`.
+
+## Windows 实机验证
+
+关闭 OASX 后运行 `OASX.Launcher.exe`，启动完成后查看同目录的
+`oasx-release.txt`：内容应变为测试版发布包对应的提交编号。若启动器提示
+「更新未完成」，请查看同目录的 `oasx-launcher.log`；里面记录了具体异常。
+修改更新渠道后，要在下一次通过启动器打开时才会检查新渠道。
