@@ -211,6 +211,8 @@ final Map<String, String> _cn_ui = {
   I18n.homeClicksTab: '点击',
   I18n.homeClicksEmpty: '本轮还没有点击记录',
   I18n.homeClicksLoading: '正在读取本轮点击记录…',
+  I18n.homeClicksMap: '点位图（1280×720）',
+  I18n.homeClicksAll: '全部任务',
   I18n.homeClicksRefresh: '刷新点击记录',
   I18n.homeClicksTruncated: '未找到本轮起点，仅显示可用的点击记录',
   I18n.homeClicksUnknownTask: '未确定任务',

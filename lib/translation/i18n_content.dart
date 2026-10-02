@@ -176,6 +176,8 @@ class I18n {
       homeClicksTab = 'home_clicks_tab',
       homeClicksEmpty = 'home_clicks_empty',
       homeClicksLoading = 'home_clicks_loading',
+      homeClicksMap = 'home_clicks_map',
+      homeClicksAll = 'home_clicks_all',
       homeClicksRefresh = 'home_clicks_refresh',
       homeClicksTruncated = 'home_clicks_truncated',
       homeClicksUnknownTask = 'home_clicks_unknown_task',

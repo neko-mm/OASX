@@ -146,6 +146,8 @@ final Map<String, String> _us_ui = {
   I18n.homeClicksTab: 'Clicks',
   I18n.homeClicksEmpty: 'No clicks in this run yet',
   I18n.homeClicksLoading: 'Loading clicks from this run…',
+  I18n.homeClicksMap: 'Click map (1280×720)',
+  I18n.homeClicksAll: 'All tasks',
   I18n.homeClicksRefresh: 'Refresh clicks',
   I18n.homeClicksTruncated: 'Run start not found; showing available clicks only',
   I18n.homeClicksUnknownTask: 'Unknown task',

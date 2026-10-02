@@ -29,6 +29,7 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
   bool _loading = true;
   bool _truncated = false;
   String _error = '';
+  String? _selectedTask;
   int _generation = 0;
 
   @override
@@ -65,6 +66,7 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
       _loading = true;
       _truncated = false;
       _error = '';
+      _selectedTask = null;
     });
 
     try {
@@ -161,7 +163,10 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
       }
       if (changed) {
         setState(() {
-          if (startedNewRun) _truncated = false;
+          if (startedNewRun) {
+            _truncated = false;
+            _selectedTask = null;
+          }
         });
       }
     } catch (error) {
@@ -173,13 +178,23 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
   Widget build(BuildContext context) {
     final entries = _trace.entries;
     final colorScheme = Theme.of(context).colorScheme;
+    final colors = <String, Color>{};
+    for (final entry in entries) {
+      colors.putIfAbsent(entry.taskName, () {
+        final hue = (colors.length * 137.508) % 360;
+        return HSVColor.fromAHSV(1, hue, 0.72, 0.88).toColor();
+      });
+    }
+    final visibleEntries = _selectedTask == null
+        ? entries
+        : entries.where((entry) => entry.taskName == _selectedTask).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              '${I18n.homeClicksTab.tr} ${entries.length}',
+              '${I18n.homeClicksTab.tr} ${visibleEntries.length}/${entries.length}',
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const Spacer(),
@@ -206,15 +221,64 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
               style: TextStyle(color: colorScheme.error),
             ),
           ),
+        if (!_loading && entries.isNotEmpty) ...[
+          Text(
+            I18n.homeClicksMap.tr,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: CustomPaint(
+                painter: _ClickTraceMapPainter(
+                  entries: visibleEntries,
+                  colors: colors,
+                  background: colorScheme.surfaceContainerLow,
+                  grid: colorScheme.outlineVariant,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              ChoiceChip(
+                label: Text(I18n.homeClicksAll.tr),
+                selected: _selectedTask == null,
+                onSelected: (_) => setState(() => _selectedTask = null),
+              ),
+              for (final taskName in colors.keys)
+                ChoiceChip(
+                  avatar: CircleAvatar(
+                    radius: 6,
+                    backgroundColor: colors[taskName],
+                  ),
+                  label: Text(
+                    taskName.isEmpty
+                        ? I18n.homeClicksUnknownTask.tr
+                        : taskName.tr,
+                  ),
+                  selected: _selectedTask == taskName,
+                  onSelected: (_) => setState(() => _selectedTask = taskName),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
         Expanded(
           child: _loading
               ? Center(child: Text(I18n.homeClicksLoading.tr))
-              : entries.isEmpty
+              : visibleEntries.isEmpty
                   ? Center(child: Text(I18n.homeClicksEmpty.tr))
                   : ListView.builder(
-                      itemCount: entries.length,
+                      itemCount: visibleEntries.length,
                       itemBuilder: (context, index) {
-                        final entry = entries[entries.length - index - 1];
+                        final entry =
+                            visibleEntries[visibleEntries.length - index - 1];
                         final taskName = entry.taskName.isEmpty
                             ? I18n.homeClicksUnknownTask.tr
                             : entry.taskName.tr;
@@ -243,4 +307,52 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
       ],
     );
   }
+}
+
+class _ClickTraceMapPainter extends CustomPainter {
+  const _ClickTraceMapPainter({
+    required this.entries,
+    required this.colors,
+    required this.background,
+    required this.grid,
+  });
+
+  final List<ClickTraceEntry> entries;
+  final Map<String, Color> colors;
+  final Color background;
+  final Color grid;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = background);
+    final gridPaint = Paint()
+      ..color = grid.withValues(alpha: 0.5)
+      ..strokeWidth = 1;
+    for (var part = 1; part < 4; part++) {
+      final fraction = part / 4;
+      canvas.drawLine(
+        Offset(size.width * fraction, 0),
+        Offset(size.width * fraction, size.height),
+        gridPaint,
+      );
+      canvas.drawLine(
+        Offset(0, size.height * fraction),
+        Offset(size.width, size.height * fraction),
+        gridPaint,
+      );
+    }
+    for (final entry in entries) {
+      final x = (entry.x / 1280 * size.width).clamp(0.0, size.width).toDouble();
+      final y = (entry.y / 720 * size.height).clamp(0.0, size.height).toDouble();
+      canvas.drawCircle(
+        Offset(x, y),
+        3.2,
+        Paint()
+          ..color = (colors[entry.taskName] ?? grid).withValues(alpha: 0.68),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ClickTraceMapPainter oldDelegate) => true;
 }
