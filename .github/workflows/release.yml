@@ -141,6 +141,77 @@ jobs:
               --repo "$GITHUB_REPOSITORY" --yes
           done <<< "$old_assets"
 
+  publish_master_git:
+    name: Publish Master Git Package
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs: warm_flutter_cache
+    runs-on: ubuntu-latest
+    concurrency:
+      group: oasx-master-git-publication
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          path: git-package
+
+      - name: Download Windows test package
+        uses: actions/download-artifact@v4
+        with:
+          name: oasx-master-test-${{ github.sha }}
+          path: binary-package
+
+      - name: Publish compiled files to Git branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(git -C git-package ls-remote origin refs/heads/master | cut -f1)
+          if [[ "$current" != "$GITHUB_SHA" ]]; then
+            echo 'Newer master commit exists; skip this package.'
+            exit 0
+          fi
+          cd git-package
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git ls-remote --exit-code origin refs/heads/oasx-bin-test >/dev/null; then
+            git fetch origin refs/heads/oasx-bin-test
+            git checkout -B oasx-bin-test FETCH_HEAD
+          else
+            git checkout --orphan oasx-bin-test
+          fi
+          git rm -r -q --ignore-unmatch .
+          rsync -a --delete --exclude='.git/' ../binary-package/ ./
+          git add -A
+          git commit -m "发布 OASX 测试版 $GITHUB_SHA"
+          git push origin HEAD:refs/heads/oasx-bin-test
+
+  verify_master_git:
+    name: Verify Master Git Package
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs: publish_master_git
+    runs-on: windows-2022
+    steps:
+      - name: Download Windows test package
+        uses: actions/download-artifact@v4
+        with:
+          name: oasx-master-test-${{ github.sha }}
+          path: test-package
+
+      - name: Verify Git updater
+        shell: pwsh
+        run: |
+          $resultPath = Join-Path $env:RUNNER_TEMP 'oasx-git-verify.txt'
+          $probe = Start-Process -FilePath (Join-Path $env:GITHUB_WORKSPACE 'test-package/OASX.Launcher.exe') `
+            -ArgumentList @('--verify-git-update', ('"' + $resultPath + '"')) `
+            -WorkingDirectory (Join-Path $env:GITHUB_WORKSPACE 'test-package') `
+            -Wait -PassThru
+          if (!(Test-Path $resultPath)) { throw 'Git updater probe produced no result.' }
+          $probeResult = Get-Content -LiteralPath $resultPath -Raw
+          Write-Host $probeResult
+          if ($probe.ExitCode -ne 0 -or $probeResult.Trim() -ne 'OK') {
+            throw 'Launcher could not fetch and stage the Git test package.'
+          }
+
   create_release:
     name: Create Release
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}

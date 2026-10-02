@@ -1,0 +1,151 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace OasxLauncher
+{
+    internal static class GitUpdate
+    {
+        private const string Repository = "https://github.com/neko-mm/OASX.git";
+        private const string TestBranch = "oasx-bin-test";
+        private const string PreferenceFile = "oasx-git-path.txt";
+        internal const string RevisionFile = "oasx-git-revision.txt";
+
+        internal static string ReadConfiguredPath(string installDir)
+        {
+            var file = Path.Combine(installDir, PreferenceFile);
+            return File.Exists(file) ? File.ReadAllText(file).Trim('\uFEFF', ' ', '\r', '\n', '"') : "";
+        }
+
+        internal static void WriteConfiguredPath(string installDir, string path)
+        {
+            path = path.Trim().Trim('"');
+            if (!File.Exists(path) ||
+                !string.Equals(Path.GetFileName(path), "git.exe",
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("请选择 OAS 自带的 git.exe。");
+            var file = Path.Combine(installDir, PreferenceFile);
+            var temporary = file + ".tmp";
+            File.WriteAllText(temporary, path, Encoding.UTF8);
+            try
+            {
+                if (File.Exists(file)) File.Replace(temporary, file, null);
+                else File.Move(temporary, file);
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+        }
+
+        internal static string FindGit(string installDir)
+        {
+            var configured = ReadConfiguredPath(installDir);
+            if (File.Exists(configured)) return configured;
+            foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "")
+                .Split(new[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                try
+                {
+                    var candidate = Path.Combine(directory.Trim('"'), "git.exe");
+                    if (File.Exists(candidate)) return candidate;
+                }
+                catch (ArgumentException) { }
+            }
+            return null;
+        }
+
+        internal static string FetchAndStage(string git, string installDir, string stageDir)
+        {
+            var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var identity = Path.GetFullPath(installDir).ToLowerInvariant();
+            string cacheKey;
+            using (var sha = SHA256.Create())
+                cacheKey = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(identity)))
+                    .Replace("-", "").Substring(0, 16);
+            var cache = Path.Combine(local, "OASX", "git-cache", cacheKey, "test");
+            Directory.CreateDirectory(Path.GetDirectoryName(cache));
+            if (!Directory.Exists(Path.Combine(cache, ".git")))
+            {
+                if (Directory.Exists(cache)) Directory.Delete(cache, true);
+                Run(git, "clone --quiet --depth 1 --single-branch --branch " + TestBranch +
+                    " " + Quote(Repository) + " " + Quote(cache));
+            }
+            else
+            {
+                Run(git, "-C " + Quote(cache) + " fetch --quiet --depth 1 origin " + TestBranch);
+                Run(git, "-C " + Quote(cache) + " reset --quiet --hard FETCH_HEAD");
+            }
+            var revision = Run(git, "-C " + Quote(cache) + " rev-parse HEAD").Trim();
+            if (revision.Length != 40 || !revision.All(Uri.IsHexDigit))
+                throw new InvalidDataException("Git 版本号无效。");
+            if (File.Exists(Path.Combine(installDir, RevisionFile)) &&
+                File.ReadAllText(Path.Combine(installDir, RevisionFile)).Trim() == revision &&
+                File.ReadAllText(Path.Combine(installDir, "oasx-channel.txt")).Trim() == "test")
+                return null;
+
+            Directory.CreateDirectory(stageDir);
+            foreach (var file in Directory.GetFiles(cache))
+                File.Copy(file, Path.Combine(stageDir, Path.GetFileName(file)), true);
+            foreach (var directory in Directory.GetDirectories(cache))
+            {
+                if (Path.GetFileName(directory) == ".git") continue;
+                CopyDirectory(directory, Path.Combine(stageDir, Path.GetFileName(directory)));
+            }
+            File.WriteAllText(Path.Combine(stageDir, RevisionFile), revision, Encoding.UTF8);
+            File.AppendAllText(Path.Combine(stageDir, "package-files.txt"),
+                Environment.NewLine + RevisionFile + Environment.NewLine, Encoding.UTF8);
+            return revision;
+        }
+
+        private static void CopyDirectory(string source, string target)
+        {
+            Directory.CreateDirectory(target);
+            foreach (var file in Directory.GetFiles(source))
+                File.Copy(file, Path.Combine(target, Path.GetFileName(file)), true);
+            foreach (var directory in Directory.GetDirectories(source))
+                CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
+        }
+
+        private static string Run(string git, string args)
+        {
+            using (var process = new Process())
+            {
+                var output = new StringBuilder();
+                var error = new StringBuilder();
+                process.StartInfo = new ProcessStartInfo {
+                    FileName = git, Arguments = args, UseShellExecute = false,
+                    CreateNoWindow = true, RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = Path.GetTempPath()
+                };
+                process.OutputDataReceived += (sender, line) => {
+                    if (line.Data != null) output.AppendLine(line.Data);
+                };
+                process.ErrorDataReceived += (sender, line) => {
+                    if (line.Data != null) error.AppendLine(line.Data);
+                };
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                if (!process.WaitForExit(120000))
+                {
+                    process.Kill();
+                    throw new InvalidDataException("Git 拉取超时。");
+                }
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                    throw new InvalidDataException("Git 拉取失败：" + error.ToString().Trim());
+                return output.ToString();
+            }
+        }
+
+        private static string Quote(string value)
+        {
+            return "\"" + value.Replace("\"", "\\\"") + "\"";
+        }
+    }
+}

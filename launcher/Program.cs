@@ -39,6 +39,21 @@ namespace OasxLauncher
                 }
                 return;
             }
+            if (args.Length == 2 && args[0] == "--verify-git-update")
+            {
+                try
+                {
+                    using (var launcher = new LauncherForm())
+                        launcher.VerifyGitPackage();
+                    File.WriteAllText(args[1], "OK");
+                }
+                catch (Exception error)
+                {
+                    File.WriteAllText(args[1], error.ToString());
+                    Environment.ExitCode = 1;
+                }
+                return;
+            }
             if (args.Length == 1 && args[0] == "--settings")
             {
                 Application.Run(new ChannelSettingsForm());
@@ -102,11 +117,12 @@ namespace OasxLauncher
     internal sealed class ChannelSettingsForm : Form
     {
         private readonly ComboBox _channel;
+        private readonly TextBox _gitPath;
 
         public ChannelSettingsForm()
         {
             Text = "OASX · 更新渠道";
-            ClientSize = new Size(350, 156);
+            ClientSize = new Size(430, 204);
             MinimumSize = MaximumSize = Size;
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -119,7 +135,7 @@ namespace OasxLauncher
                 Text = "更新渠道", Location = new Point(22, 25), Size = new Size(90, 25)
             };
             _channel = new ComboBox {
-                Location = new Point(118, 22), Size = new Size(206, 28),
+                Location = new Point(118, 22), Size = new Size(280, 28),
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
             _channel.Items.AddRange(new object[] { "稳定版", "测试版" });
@@ -127,18 +143,39 @@ namespace OasxLauncher
                 == "test" ? 1 : 0;
             var help = new Label {
                 Text = "下次通过启动器打开时生效", Location = new Point(22, 64),
-                Size = new Size(302, 23), ForeColor = Color.FromArgb(151, 170, 186)
+                Size = new Size(376, 23), ForeColor = Color.FromArgb(151, 170, 186)
+            };
+            var gitLabel = new Label {
+                Text = "Git 程序", Location = new Point(22, 99), Size = new Size(90, 25)
+            };
+            _gitPath = new TextBox {
+                Location = new Point(118, 96), Size = new Size(220, 25),
+                Text = GitUpdate.ReadConfiguredPath(AppDomain.CurrentDomain.BaseDirectory)
+            };
+            var browse = new Button {
+                Text = "浏览", Location = new Point(346, 95), Size = new Size(52, 27)
+            };
+            browse.Click += (sender, args) => {
+                using (var picker = new OpenFileDialog()) {
+                    picker.Filter = "Git 程序 (git.exe)|git.exe";
+                    picker.FileName = "git.exe";
+                    if (picker.ShowDialog(this) == DialogResult.OK)
+                        _gitPath.Text = picker.FileName;
+                }
             };
             var cancel = new Button {
-                Text = "取消", Location = new Point(172, 108), Size = new Size(72, 30)
+                Text = "取消", Location = new Point(246, 156), Size = new Size(72, 30)
             };
             cancel.Click += (sender, args) => Close();
             var save = new Button {
-                Text = "保存", Location = new Point(252, 108), Size = new Size(72, 30)
+                Text = "保存", Location = new Point(326, 156), Size = new Size(72, 30)
             };
             save.Click += (sender, args) => {
                 try
                 {
+                    if (!string.IsNullOrWhiteSpace(_gitPath.Text))
+                        GitUpdate.WriteConfiguredPath(AppDomain.CurrentDomain.BaseDirectory,
+                            _gitPath.Text);
                     UpdateChannel.Write(AppDomain.CurrentDomain.BaseDirectory,
                         _channel.SelectedIndex == 1 ? "test" : "stable");
                     Close();
@@ -149,7 +186,9 @@ namespace OasxLauncher
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             };
-            Controls.AddRange(new Control[] { label, _channel, help, cancel, save });
+            Controls.AddRange(new Control[] {
+                label, _channel, help, gitLabel, _gitPath, browse, cancel, save
+            });
         }
     }
 
@@ -258,6 +297,12 @@ namespace OasxLauncher
                 }
                 var channel = UpdateChannel.Read(_installDir);
                 SetStatus("正在检查更新", channel == "test" ? "测试版" : "稳定版");
+                var git = channel == "test" ? GitUpdate.FindGit(_installDir) : null;
+                if (git != null)
+                {
+                    await RunGitUpdateAsync(git);
+                    return;
+                }
                 var release = await GetLatestReleaseAsync(channel);
                 if (_finished) return;
                 if (_skipRequested) { LaunchInstalled(); return; }
@@ -307,26 +352,7 @@ namespace OasxLauncher
                     throw new InvalidDataException("安装包内容不匹配，已保留旧版本。");
 
                 var applySource = Path.Combine(stageDir, "OASX.Update.Apply.ps1");
-                if (!File.Exists(applySource))
-                    throw new InvalidDataException("安装包缺少更新程序。");
-                var applyTemp = Path.Combine(_workRoot, "apply.ps1");
-                File.Copy(applySource, applyTemp);
-                SetStatus("正在安装更新", "");
-                _skip.Enabled = false;
-                var psi = new ProcessStartInfo {
-                    FileName = Path.Combine(Environment.GetFolderPath(
-                        Environment.SpecialFolder.System),
-                        "WindowsPowerShell\\v1.0\\powershell.exe"),
-                    Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -File " +
-                        Quote(applyTemp) + " -InstallDir " + Quote(_installDir) +
-                        " -WorkRoot " + Quote(_workRoot) +
-                        " -LauncherPid " + Process.GetCurrentProcess().Id,
-                    UseShellExecute = false, CreateNoWindow = true,
-                    WorkingDirectory = Path.GetTempPath()
-                };
-                Process.Start(psi);
-                _finished = true;
-                Close();
+                StartApply(applySource);
             }
             catch (Exception error)
             {
@@ -345,6 +371,79 @@ namespace OasxLauncher
                 CleanupTemp();
                 await Task.Delay(1500);
                 LaunchInstalled();
+            }
+        }
+
+        private async Task RunGitUpdateAsync(string git)
+        {
+            SetStatus("正在拉取更新", "测试版");
+            _workRoot = Path.Combine(Path.GetTempPath(),
+                "oasx-update-" + Guid.NewGuid().ToString("N"));
+            var stageDir = Path.Combine(_workRoot, "stage");
+            var revision = await Task.Run(() =>
+                GitUpdate.FetchAndStage(git, _installDir, stageDir));
+            if (_finished) return;
+            if (_skipRequested) { LaunchInstalled(); return; }
+            if (revision == null)
+            {
+                SetStatus("已是最新版本", ReadText("oasx-release.txt"));
+                await Task.Delay(500);
+                LaunchInstalled();
+                return;
+            }
+            if (ReadStageText(stageDir, "oasx-channel.txt") != "test" ||
+                string.IsNullOrWhiteSpace(ReadStageText(stageDir, "oasx-release.txt")) ||
+                !File.Exists(Path.Combine(stageDir, AppName)) ||
+                !File.Exists(Path.Combine(stageDir, "OASX.Launcher.exe")) ||
+                !File.Exists(Path.Combine(stageDir, "package-files.txt")))
+                throw new InvalidDataException("Git 更新内容不完整。");
+            SetStatus("正在安装更新", "");
+            StartApply(Path.Combine(stageDir, "OASX.Update.Apply.ps1"));
+        }
+
+        private void StartApply(string applySource)
+        {
+            if (!File.Exists(applySource))
+                throw new InvalidDataException("安装包缺少更新程序。");
+            var applyTemp = Path.Combine(_workRoot, "apply.ps1");
+            File.Copy(applySource, applyTemp);
+            SetStatus("正在安装更新", "");
+            _skip.Enabled = false;
+            var psi = new ProcessStartInfo {
+                FileName = Path.Combine(Environment.GetFolderPath(
+                    Environment.SpecialFolder.System),
+                    "WindowsPowerShell\\v1.0\\powershell.exe"),
+                Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -File " +
+                    Quote(applyTemp) + " -InstallDir " + Quote(_installDir) +
+                    " -WorkRoot " + Quote(_workRoot) +
+                    " -LauncherPid " + Process.GetCurrentProcess().Id,
+                UseShellExecute = false, CreateNoWindow = true,
+                WorkingDirectory = Path.GetTempPath()
+            };
+            Process.Start(psi);
+            _finished = true;
+            Close();
+        }
+
+        internal void VerifyGitPackage()
+        {
+            var git = GitUpdate.FindGit(_installDir);
+            if (git == null) throw new InvalidDataException("找不到 git.exe。");
+            var root = Path.Combine(Path.GetTempPath(),
+                "oasx-verify-git-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var stage = Path.Combine(root, "stage");
+                var revision = GitUpdate.FetchAndStage(git, _installDir, stage);
+                if (revision == null ||
+                    ReadStageText(stage, "oasx-channel.txt") != "test" ||
+                    !File.Exists(Path.Combine(stage, AppName)) ||
+                    !File.Exists(Path.Combine(stage, "OASX.Launcher.exe")))
+                    throw new InvalidDataException("Git 测试包不完整。");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
             }
         }
 
