@@ -179,7 +179,7 @@ jobs:
           else
             git checkout --orphan oasx-bin-test
           fi
-          git rm -r -q --ignore-unmatch .
+          git rm -r -f -q --ignore-unmatch .
           rsync -a --delete --exclude='.git/' ../binary-package/ ./
           git add -A
           git commit -m "发布 OASX 测试版 $GITHUB_SHA"
