@@ -106,6 +106,9 @@ class ActiveConfigPanel extends StatelessWidget {
                 children: tabs
                     .map(
                       (tab) => ChoiceChip(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                         label: Text(_tabLabel(tab)),
                         showCheckmark: false,
                         selected: currentTab == tab,

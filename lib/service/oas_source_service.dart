@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:oasx/modules/common/models/storage_key.dart';
 import 'package:oasx/modules/server/controllers/server_controller.dart';
+import 'package:oasx/modules/server/models/deploy_git_config.dart';
 import 'package:oasx/modules/server/models/oas_source_config.dart';
 import 'package:oasx/service/window_service.dart';
 
@@ -57,16 +58,20 @@ class OasSourceService extends GetxService {
       branch: branch,
     );
     if (updated != original) {
-      final backup = File('$filePath.oasx-backup');
+      final backup = File('$filePath.oasx-backup-'
+          '${DateTime.now().microsecondsSinceEpoch}');
       await backup.writeAsString(original, flush: true);
+      var canRemoveBackup = false;
       try {
         await file.writeAsString(updated, flush: true);
         OasSourceConfig.read(await file.readAsString());
+        canRemoveBackup = true;
       } catch (_) {
         await file.writeAsString(original, flush: true);
+        canRemoveBackup = true;
         rethrow;
       } finally {
-        if (await backup.exists()) await backup.delete();
+        if (canRemoveBackup && await backup.exists()) await backup.delete();
       }
     }
     path.value = filePath;
@@ -82,6 +87,9 @@ class OasSourceService extends GetxService {
         : Get.put(ServerController(), permanent: true);
     if (!server.authenticatePath(root)) {
       throw const FormatException('无法识别 OAS 安装目录');
+    }
+    if (!DeployGitConfig.read(root).autoUpdate) {
+      throw const FormatException('请先在 deploy.yaml 中开启 AutoUpdate');
     }
     server.updateRootPathServer(root);
     final started = await server.run();

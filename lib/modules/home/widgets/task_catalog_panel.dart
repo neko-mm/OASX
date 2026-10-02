@@ -458,7 +458,7 @@ class _CatalogTaskRow extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         decoration: BoxDecoration(
           color: isDraggingTask ? dragColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(3),
         ),
         child: SplitScrollRow(
           scrollKey: PageStorageKey<String>('task-row-scroll-${task.name}'),

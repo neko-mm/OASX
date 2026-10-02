@@ -15,6 +15,11 @@ class OasSourceButton extends StatelessWidget {
     return Obx(() {
       final branch = service.branch.value;
       return OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
         onPressed: () => Get.dialog<void>(
           const OasSourceDialog(),
           barrierDismissible: false,
