@@ -92,7 +92,7 @@ class OasSourceService extends GetxService {
       throw const FormatException('请先在 deploy.yaml 中开启 AutoUpdate');
     }
     server.updateRootPathServer(root);
-    final started = await server.run();
+    final started = await server.run(killAllPythonw: false);
     if (!started) return false;
     await Get.find<WindowService>().restartViaLauncher();
     return true;

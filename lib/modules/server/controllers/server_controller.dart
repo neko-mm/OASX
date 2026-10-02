@@ -281,7 +281,7 @@ class ServerController extends GetxController with LogMixin {
     return prefetcher.prefetchRepository();
   }
 
-  Future<bool> run() async {
+  Future<bool> run({bool killAllPythonw = true}) async {
     isDeployLoading.value = true;
     try {
       if (Get.isRegistered<SettingsController>()) {
@@ -294,10 +294,12 @@ class ServerController extends GetxController with LogMixin {
       shell!.kill();
       await runShell('echo OAS working directory: ');
       await runShell('cd');
-      await runShell(
-        'taskkill /f /t /im pythonw.exe',
-        ignorePythonwNotRunning: true,
-      );
+      if (killAllPythonw) {
+        await runShell(
+          'taskkill /f /t /im pythonw.exe',
+          ignorePythonwNotRunning: true,
+        );
+      }
       final prefetched = await prefetchRepository();
       if (!prefetched) {
         return false;
