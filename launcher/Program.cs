@@ -101,10 +101,19 @@ namespace OasxLauncher
         {
             try
             {
+                if (IsAppRunning())
+                {
+                    SetStatus("OASX 已在运行", "关闭现有窗口后，重新启动才会检查更新。");
+                    _skip.Enabled = false;
+                    await Task.Delay(1800);
+                    _finished = true;
+                    Close();
+                    return;
+                }
                 if (ReadText("oasx-channel.txt") == "test")
                 {
                     SetStatus("测试版", "不检查稳定版更新，正在启动…");
-                    await Task.Delay(500);
+                    await Task.Delay(2500);
                     LaunchInstalled();
                     return;
                 }
@@ -172,7 +181,7 @@ namespace OasxLauncher
                         " -WorkRoot " + Quote(_workRoot) +
                         " -LauncherPid " + Process.GetCurrentProcess().Id,
                     UseShellExecute = false, CreateNoWindow = true,
-                    WorkingDirectory = _workRoot
+                    WorkingDirectory = Path.GetTempPath()
                 };
                 Process.Start(psi);
                 _finished = true;
@@ -292,6 +301,23 @@ namespace OasxLauncher
         {
             var path = Path.Combine(directory, name);
             return File.Exists(path) ? File.ReadAllText(path).Trim() : "";
+        }
+
+        private bool IsAppRunning()
+        {
+            var expected = Path.GetFullPath(Path.Combine(_installDir, AppName));
+            foreach (var process in Process.GetProcessesByName("oasx"))
+            {
+                try
+                {
+                    if (string.Equals(Path.GetFullPath(process.MainModule.FileName),
+                            expected, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                catch { /* A different user's process can deny path inspection. */ }
+                finally { process.Dispose(); }
+            }
+            return false;
         }
 
         private void SetStatus(string status, string detail)
