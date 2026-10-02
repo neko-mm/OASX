@@ -86,7 +86,12 @@ jobs:
           $probeResult = Get-Content -LiteralPath $resultPath -Raw
           Write-Host $probeResult
           if ($probe.ExitCode -ne 0 -or $probeResult.Trim() -ne 'OK') {
-            throw 'Launcher could not fetch and validate the current test update.'
+            if ($probeResult -match 'System.Net.WebException' -and
+                $probeResult -match '\(403\) Forbidden') {
+              Write-Warning 'GitHub declined the optional ZIP download probe; Git package verification will run after publication.'
+            } else {
+              throw 'Launcher could not fetch and validate the current test update.'
+            }
           }
 
       - name: Upload Windows test package
