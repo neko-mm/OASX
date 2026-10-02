@@ -352,6 +352,13 @@ namespace OasxLauncher
         /// without replacing the installed application.
         internal async Task VerifyLatestPackageAsync(string channel)
         {
+            var unicodeJson = Encoding.UTF8.GetBytes("{\"name\":\"OASX 测试版\"}");
+            var unicodeRelease = new JavaScriptSerializer()
+                .DeserializeObject(DecodeReleaseJson(unicodeJson))
+                as Dictionary<string, object>;
+            if (unicodeRelease == null || ReadField(unicodeRelease, "name") != "OASX 测试版")
+                throw new InvalidDataException("发布信息的 UTF-8 解码校验失败。");
+
             var release = await GetLatestReleaseAsync(channel);
             var root = Path.Combine(Path.GetTempPath(),
                 "oasx-verify-" + Guid.NewGuid().ToString("N"));
@@ -387,7 +394,7 @@ namespace OasxLauncher
                 {
                     var bytes = await client.DownloadDataTaskAsync(new Uri(
                         channel == "test" ? TestReleaseApi : ReleaseApi));
-                    json = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
+                    json = DecodeReleaseJson(bytes);
                 }
                 catch (WebException error)
                 {
@@ -398,7 +405,7 @@ namespace OasxLauncher
                     if (channel != "stable" || response == null ||
                         response.StatusCode != HttpStatusCode.NotFound) throw;
                     var bytes = await client.DownloadDataTaskAsync(new Uri(LegacyReleaseApi));
-                    json = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
+                    json = DecodeReleaseJson(bytes);
                 }
                 var root = new JavaScriptSerializer().DeserializeObject(json)
                     as Dictionary<string, object>;
@@ -446,6 +453,11 @@ namespace OasxLauncher
                 if (newest != null) return newest;
                 throw new InvalidDataException("未找到 Windows 发布包。");
             }
+        }
+
+        private static string DecodeReleaseJson(byte[] bytes)
+        {
+            return Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
         }
 
         private static WebClient CreateClient()
