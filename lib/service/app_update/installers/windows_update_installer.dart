@@ -18,7 +18,12 @@ class WindowsUpdateInstaller implements AppUpdateInstaller {
   @override
   Future<bool> canInstallInApp() async {
     final platformUtils = PlatformUtils();
-    return !await platformUtils.isInstalledFromMicrosoftStore();
+    if (await platformUtils.isInstalledFromMicrosoftStore()) return false;
+    // Portable packages update before OASX starts. Avoid the legacy in-app
+    // updater moving the entire install directory (which may contain OAS).
+    final launcher = File('${File(Platform.resolvedExecutable).parent.path}'
+        '${Platform.pathSeparator}OASX.Launcher.exe');
+    return !await launcher.exists();
   }
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -28,6 +30,16 @@ class AppVersionUtils {
   static Future<String> getCurrentVersion() async {
     if (!kReleaseMode) {
       return 'v0.0.1';
+    }
+    if (Platform.isWindows) {
+      final directory = File(Platform.resolvedExecutable).parent.path;
+      final channel = File('$directory${Platform.pathSeparator}oasx-channel.txt');
+      final release = File('$directory${Platform.pathSeparator}oasx-release.txt');
+      if (await channel.exists() && await release.exists() &&
+          (await channel.readAsString()).trim() == 'stable') {
+        final tag = (await release.readAsString()).trim();
+        if (RegExp(r'^v\d').hasMatch(tag)) return tag;
+      }
     }
     final packageInfo = await PackageInfo.fromPlatform();
     return 'v${packageInfo.version}'.split('-')[0];
