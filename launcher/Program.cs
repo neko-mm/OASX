@@ -28,7 +28,8 @@ namespace OasxLauncher
                 try
                 {
                     using (var launcher = new LauncherForm())
-                        launcher.VerifyLatestPackageAsync("test").GetAwaiter().GetResult();
+                        Task.Run(() => launcher.VerifyLatestPackageAsync("test"))
+                            .GetAwaiter().GetResult();
                     File.WriteAllText(args[1], "OK");
                 }
                 catch (Exception error)
