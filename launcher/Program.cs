@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -28,6 +29,10 @@ namespace OasxLauncher
 
     internal sealed class LauncherForm : Form
     {
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr window, int attribute,
+            ref int value, int size);
+
         private const string ReleaseApi =
             "https://api.github.com/repos/neko-mm/OASX/releases/latest";
         private const string AppName = "oasx.exe";
@@ -95,6 +100,17 @@ namespace OasxLauncher
                 accent, title, subtitle, _status, _detail, _progress, _skip
             });
             Shown += async (sender, args) => await RunAsync();
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            try
+            {
+                var enabled = 1;
+                DwmSetWindowAttribute(Handle, 20, ref enabled, sizeof(int));
+            }
+            catch { /* Older Windows versions keep their normal title bar. */ }
         }
 
         private async Task RunAsync()
