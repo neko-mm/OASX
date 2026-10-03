@@ -14,6 +14,14 @@ import 'package:oasx/modules/server/models/deploy_python_config.dart';
 import 'package:oasx/modules/settings/controllers/settings_controller.dart';
 import 'package:oasx/service/locale_service.dart';
 import 'package:oasx/service/script_service.dart';
+import 'package:oasx/translation/i18n_content.dart';
+
+class DeployLogEntry {
+  const DeployLogEntry(this.time, this.line);
+
+  final DateTime time;
+  final String line;
+}
 
 class ServerController extends GetxController with LogMixin {
   @override
@@ -25,10 +33,45 @@ class ServerController extends GetxController with LogMixin {
   final deployContent = ''.obs;
   final autoLoginAfterDeploy = false.obs;
   final isDeployLoading = false.obs;
+  final deployPhase = I18n.homeDeployPreparing.obs;
+  final deployLogEntries = <DeployLogEntry>[].obs;
   final _storage = GetStorage();
   Shell? shell;
   var shellController = ShellLinesController();
   var shellErrorController = ShellLinesController();
+
+  @override
+  void addLog(String log) {
+    super.addLog(log);
+    deployLogEntries.add(DeployLogEntry(DateTime.now(), log));
+    if (deployLogEntries.length > 200) {
+      deployLogEntries.removeRange(0, deployLogEntries.length - 200);
+    }
+  }
+
+  @override
+  void upsertLog(String log, bool Function(String log) shouldReplace) {
+    final index = deployLogEntries.lastIndexWhere(
+      (entry) => shouldReplace(entry.line),
+    );
+    final lastBefore =
+        deployLogEntries.isEmpty ? null : deployLogEntries.last;
+    super.upsertLog(log, shouldReplace);
+    final appendedBySuper = deployLogEntries.isNotEmpty &&
+        !identical(deployLogEntries.last, lastBefore);
+    if (index >= 0 && !appendedBySuper) {
+      deployLogEntries.removeAt(index);
+      deployLogEntries.add(DeployLogEntry(DateTime.now(), log));
+    } else if (index < 0 && !appendedBySuper) {
+      deployLogEntries.add(DeployLogEntry(DateTime.now(), log));
+    }
+  }
+
+  @override
+  void clearLog() {
+    super.clearLog();
+    deployLogEntries.clear();
+  }
 
   /// Tracks whether taskkill already reported that pythonw.exe is absent.
   var _pythonwNotRunningLogged = false;
@@ -283,6 +326,7 @@ class ServerController extends GetxController with LogMixin {
 
   Future<bool> run({bool killAllPythonw = true}) async {
     isDeployLoading.value = true;
+    deployPhase.value = I18n.homeDeployPreparing;
     try {
       if (Get.isRegistered<SettingsController>()) {
         await Get.find<SettingsController>().killServer(
@@ -300,11 +344,13 @@ class ServerController extends GetxController with LogMixin {
           ignorePythonwNotRunning: true,
         );
       }
+      deployPhase.value = I18n.homeDeployUpdating;
       final prefetched = await prefetchRepository();
       if (!prefetched) {
         return false;
       }
       final pythonConfig = DeployPythonConfig.read(rootPathServer.value);
+      deployPhase.value = I18n.homeDeployInstalling;
       final installed = await runShell(
         shellExecutableArguments(
           pythonConfig.getPythonPath(rootPathServer.value),
@@ -314,6 +360,7 @@ class ServerController extends GetxController with LogMixin {
       if (!installed) {
         return false;
       }
+      deployPhase.value = I18n.homeDeployStarting;
       await runShell('echo Start OAS');
       unawaited(
         runShell(
@@ -334,6 +381,7 @@ class ServerController extends GetxController with LogMixin {
         return true;
       }
       await Future.delayed(const Duration(seconds: 2));
+      deployPhase.value = I18n.homeDeployConnecting;
       await _tryConnect(
         address,
         retries: 60,

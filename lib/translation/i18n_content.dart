@@ -176,6 +176,12 @@ class I18n {
       homeEmptyScriptHint = 'home_empty_script_hint';
   static const String homeLoadingAutoDeploying = 'home_loading_auto_deploying',
       homeGoDeployPage = 'home_go_deploy_page',
+      homeDeployPreparing = 'home_deploy_preparing',
+      homeDeployUpdating = 'home_deploy_updating',
+      homeDeployInstalling = 'home_deploy_installing',
+      homeDeployStarting = 'home_deploy_starting',
+      homeDeployConnecting = 'home_deploy_connecting',
+      homeDeployWaitingLog = 'home_deploy_waiting_log',
       homeLoadingAutoLogin = 'home_loading_auto_login',
       homeLoadingConfigDetail = 'home_loading_config_detail';
   static const String homeScriptAbnormal = 'home_script_abnormal',

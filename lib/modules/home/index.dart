@@ -6,8 +6,8 @@ import 'package:oasx/modules/common/widgets/add_config_dialog.dart';
 import 'package:oasx/modules/common/widgets/appbar.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
 import 'package:oasx/modules/home/widgets/config_workbench.dart';
+import 'package:oasx/modules/home/widgets/auto_deploy_overlay.dart';
 import 'package:oasx/modules/home/widgets/oas_source_dialog.dart';
-import 'package:oasx/modules/server/controllers/server_controller.dart';
 import 'package:oasx/service/script_service.dart';
 import 'package:oasx/translation/i18n_content.dart';
 import 'package:oasx/utils/check_version.dart';
@@ -73,10 +73,9 @@ class _HomeViewState extends State<HomeView> {
               return const SizedBox.shrink();
             }
             return Positioned.fill(
-              child: _StartupLoadingOverlay(
-                message: message,
-                autoDeploying: controller.isStartupAutoDeploying.value,
-              ),
+              child: controller.isStartupAutoDeploying.value
+                  ? const AutoDeployOverlay()
+                  : _StartupLoadingOverlay(message: message),
             );
           }),
         ],
@@ -110,11 +109,9 @@ class _HomeViewState extends State<HomeView> {
 class _StartupLoadingOverlay extends StatelessWidget {
   const _StartupLoadingOverlay({
     required this.message,
-    required this.autoDeploying,
   });
 
   final String message;
-  final bool autoDeploying;
 
   @override
   Widget build(BuildContext context) {
@@ -139,48 +136,11 @@ class _StartupLoadingOverlay extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                if (autoDeploying) const _AutoDeployStatusView(),
               ],
             ),
           ),
         ),
       ),
     );
-  }
-}
-
-class _AutoDeployStatusView extends StatelessWidget {
-  const _AutoDeployStatusView();
-
-  @override
-  Widget build(BuildContext context) {
-    if (!Get.isRegistered<ServerController>()) {
-      return const SizedBox.shrink();
-    }
-    final controller = Get.find<ServerController>();
-    return Obx(() {
-      final log = controller.latestLog.value.trim();
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (log.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              log,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () => Get.toNamed('/server'),
-            icon: const Icon(Icons.open_in_new_rounded),
-            label: Text(I18n.homeGoDeployPage.tr),
-          ),
-        ],
-      );
-    });
   }
 }

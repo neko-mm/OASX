@@ -14,19 +14,35 @@ class OasSourceButton extends StatelessWidget {
     final service = Get.find<OasSourceService>();
     return Obx(() {
       final branch = service.branch.value;
-      return OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(3),
+      final accent = Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF80D8F3)
+          : const Color(0xFF087C9D);
+      return Semantics(
+        button: true,
+        child: InkWell(
+          onTap: () => Get.dialog<void>(
+            const OasSourceDialog(),
+            barrierDismissible: false,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 2, height: 25, color: accent),
+                const SizedBox(width: 14),
+                Text(
+                  branch.isEmpty
+                      ? I18n.oasSource.tr
+                      : '${I18n.oasSource.tr} · $branch',
+                  style: TextStyle(color: accent, fontSize: 15),
+                ),
+                const SizedBox(width: 5),
+                Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: accent),
+              ],
+            ),
           ),
         ),
-        onPressed: () => Get.dialog<void>(
-          const OasSourceDialog(),
-          barrierDismissible: false,
-        ),
-        child: Text(branch.isEmpty
-            ? I18n.oasSource.tr
-            : '${I18n.oasSource.tr} · $branch'),
       );
     });
   }
