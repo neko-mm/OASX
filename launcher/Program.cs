@@ -162,12 +162,40 @@ namespace OasxLauncher
                 Text = "Git 程序", Location = new Point(22, 99), Size = new Size(90, 25)
             };
             var git = GitUpdate.FindOasGit(AppDomain.CurrentDomain.BaseDirectory);
-            var gitStatus = new Label {
-                Text = git == null ? "未识别到 OAS 内置 Git" : "已识别 OAS 内置 Git",
-                Location = new Point(118, 99), Size = new Size(280, 25),
-                ForeColor = git == null ? Color.FromArgb(151, 170, 186)
-                    : Color.FromArgb(126, 205, 225)
-            };
+            TextBox gitPath = null;
+            var gitPathChanged = false;
+            if (git == null)
+            {
+                gitPath = new TextBox {
+                    Location = new Point(118, 96), Size = new Size(220, 25),
+                    Text = GitUpdate.ReadConfiguredPath(AppDomain.CurrentDomain.BaseDirectory)
+                };
+                gitPath.TextChanged += (sender, args) => gitPathChanged = true;
+                var browse = new Button {
+                    Text = "浏览", Location = new Point(346, 95), Size = new Size(52, 27)
+                };
+                browse.Click += (sender, args) => {
+                    using (var picker = new OpenFileDialog()) {
+                        picker.Filter = "Git 程序 (git.exe)|git.exe";
+                        picker.FileName = "git.exe";
+                        if (picker.ShowDialog(this) == DialogResult.OK)
+                            gitPath.Text = picker.FileName;
+                    }
+                };
+                var gitHelp = new Label {
+                    Text = "未识别到 OAS 内置 Git，可手动选择",
+                    Location = new Point(118, 126), Size = new Size(280, 22),
+                    ForeColor = Color.FromArgb(151, 170, 186)
+                };
+                Controls.AddRange(new Control[] { gitPath, browse, gitHelp });
+            }
+            else
+            {
+                Controls.Add(new Label {
+                    Text = "已识别 OAS 内置 Git", Location = new Point(118, 99),
+                    Size = new Size(280, 25), ForeColor = Color.FromArgb(126, 205, 225)
+                });
+            }
             var cancel = new Button {
                 Text = "取消", Location = new Point(246, 156), Size = new Size(72, 30)
             };
@@ -178,6 +206,9 @@ namespace OasxLauncher
             save.Click += (sender, args) => {
                 try
                 {
+                    if (gitPathChanged && !string.IsNullOrWhiteSpace(gitPath.Text))
+                        GitUpdate.WriteConfiguredPath(AppDomain.CurrentDomain.BaseDirectory,
+                            gitPath.Text);
                     UpdateChannel.Write(AppDomain.CurrentDomain.BaseDirectory,
                         _channel.SelectedIndex == 1 ? "test" : "stable");
                     Close();
@@ -189,7 +220,7 @@ namespace OasxLauncher
                 }
             };
             Controls.AddRange(new Control[] {
-                label, _channel, help, gitLabel, gitStatus, cancel, save
+                label, _channel, help, gitLabel, cancel, save
             });
         }
     }
