@@ -51,7 +51,7 @@ class _AutoDeployOverlayState extends State<AutoDeployOverlay>
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 36),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1090),
+              constraints: const BoxConstraints(maxWidth: 950),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
