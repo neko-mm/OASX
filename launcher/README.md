@@ -42,13 +42,15 @@ the feature into `personal`.
 
 云构建会把 `master` 编译后的 Windows 文件自动发布到 `oasx-bin-test` 分支，
 无需手动下载或上传 ZIP。测试版启动器优先用 Git 拉取该分支，缓存放在当前
-Windows 用户的本地应用数据目录；后续拉取复用缓存。启动器设置中的「Git 程序」
-可选择 OAS 自带的 `toolkit/Git/mingw64/bin/git.exe`。未配置且系统路径中也找不到
-Git 时，测试版暂时沿用原来的 ZIP 更新方式。稳定版目前仍使用原来的发布包，
+Windows 用户的本地应用数据目录；后续拉取复用缓存。OASX 会把已配置的 OAS
+根目录同步给启动器，启动器自动使用其中的 `toolkit/Git/mingw64/bin/git.exe`。
+未识别到时会沿用旧的 Git 路径或系统 Git；都找不到则使用 ZIP 更新。
+稳定版目前仍使用原来的发布包，
 等测试版实机验证通过后再切换。
 
 拉取内容先复制到临时目录，沿用原有的文件替换、失败回滚和重启流程。
-`oasx-git-path.txt` 保存用户选择的 Git 路径，更新时不会覆盖。
+`oasx-oas-root.txt` 保存当前 OAS 根目录，更新时不会覆盖；旧版手选的
+`oasx-git-path.txt` 仍可作为备用路径。
 启动器与替换脚本的交接记录写入 `oasx-update.log`；如果窗口关闭后程序未重新打开，
 先查看该日志最后几行，区分 Git 拉取、文件替换和重启失败。
 PowerShell 交接通过编码命令传递路径和参数；脚本启动失败也会写入同一日志。

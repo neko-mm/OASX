@@ -12,6 +12,7 @@ namespace OasxLauncher
         private const string Repository = "https://github.com/neko-mm/OASX.git";
         private const string TestBranch = "oasx-bin-test";
         private const string PreferenceFile = "oasx-git-path.txt";
+        private const string OasRootFile = "oasx-oas-root.txt";
         internal const string RevisionFile = "oasx-git-revision.txt";
 
         internal static string ReadConfiguredPath(string installDir)
@@ -43,6 +44,8 @@ namespace OasxLauncher
 
         internal static string FindGit(string installDir)
         {
+            var oasGit = FindOasGit(installDir);
+            if (oasGit != null) return oasGit;
             var configured = ReadConfiguredPath(installDir);
             if (File.Exists(configured)) return configured;
             foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "")
@@ -56,6 +59,44 @@ namespace OasxLauncher
                 catch (ArgumentException) { }
             }
             return null;
+        }
+
+        internal static string FindOasGit(string installDir)
+        {
+            var file = Path.Combine(installDir, OasRootFile);
+            if (!File.Exists(file)) return null;
+            var root = File.ReadAllText(file).Trim('\uFEFF', ' ', '\r', '\n', '"');
+            if (string.IsNullOrWhiteSpace(root)) return null;
+            try
+            {
+                var candidate = Path.Combine(root, "toolkit", "Git", "mingw64",
+                    "bin", "git.exe");
+                return File.Exists(candidate) ? candidate : null;
+            }
+            catch (ArgumentException) { return null; }
+        }
+
+        internal static void VerifyAutoDetection()
+        {
+            var install = Path.Combine(Path.GetTempPath(),
+                "oasx-git-detect-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var root = Path.Combine(install, "OAS");
+                var git = Path.Combine(root, "toolkit", "Git", "mingw64", "bin", "git.exe");
+                Directory.CreateDirectory(Path.GetDirectoryName(git));
+                File.WriteAllText(git, "");
+                File.WriteAllText(Path.Combine(install, OasRootFile), root);
+                if (FindOasGit(install) != git || FindGit(install) != git)
+                    throw new InvalidDataException("无法从 OAS 根目录识别 Git。");
+                File.Delete(git);
+                if (FindOasGit(install) != null)
+                    throw new InvalidDataException("OAS Git 消失后仍返回旧路径。");
+            }
+            finally
+            {
+                if (Directory.Exists(install)) Directory.Delete(install, true);
+            }
         }
 
         internal static string FetchAndStage(string git, string installDir, string stageDir)

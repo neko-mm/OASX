@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:oasx/config/theme.dart' show darkTheme, lightTheme;
+import 'package:oasx/modules/common/models/storage_key.dart';
 import 'package:oasx/modules/common/widgets/app_background.dart';
 import 'package:oasx/modules/settings/controllers/settings_controller.dart';
 import 'package:oasx/service/app_exit_service.dart';
@@ -13,6 +14,7 @@ import 'package:oasx/service/autostart_service.dart';
 import 'package:oasx/service/app_update_service.dart';
 import 'package:oasx/service/locale_service.dart';
 import 'package:oasx/service/oas_source_service.dart';
+import 'package:oasx/service/oas_git_locator.dart';
 import 'package:oasx/service/script_service.dart';
 import 'package:oasx/service/system_tray_service.dart';
 import 'package:oasx/service/theme_service.dart';
@@ -77,6 +79,8 @@ class GlobalBehavior extends MaterialScrollBehavior {
 
 Future<void> initService() async {
   await GetStorage.init();
+  final storedRoot = GetStorage().read(StorageKey.rootPathServer.name);
+  OasGitLocator.sync(storedRoot is String ? storedRoot : null);
 
   Get.put(SettingsController(), permanent: true);
   Get.put(AppearanceService(), permanent: true);

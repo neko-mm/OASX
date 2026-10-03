@@ -13,6 +13,7 @@ import 'package:oasx/modules/server/models/deploy_git_prefetcher.dart';
 import 'package:oasx/modules/server/models/deploy_python_config.dart';
 import 'package:oasx/modules/settings/controllers/settings_controller.dart';
 import 'package:oasx/service/locale_service.dart';
+import 'package:oasx/service/oas_git_locator.dart';
 import 'package:oasx/service/script_service.dart';
 import 'package:oasx/translation/i18n_content.dart';
 
@@ -98,6 +99,7 @@ class ServerController extends GetxController with LogMixin {
   void updateRootPathServer(String value) {
     rootPathAuthenticated.value = authenticatePath(value);
     rootPathServer.value = value;
+    OasGitLocator.sync(rootPathAuthenticated.value ? value : null);
     shell = getShell;
     Get.find<SettingsController>().storage.write(
       StorageKey.rootPathServer.name,
