@@ -500,11 +500,12 @@ namespace OasxLauncher
                                 ? File.ReadAllText(Path.Combine(install, "oasx-update.log"))
                                 : "没有产生更新日志。"));
                 }
-                if (File.ReadAllText(Path.Combine(install, "oasx-release.txt")) !=
-                    "test-version" ||
-                    !File.ReadAllText(Path.Combine(install, "oasx-update.log"))
-                        .Contains("替换脚本开始执行"))
-                    throw new InvalidDataException("PowerShell 未执行完整替换。");
+                var installed = File.ReadAllText(Path.Combine(install,
+                    "oasx-release.txt")).Trim();
+                var log = File.ReadAllText(Path.Combine(install, "oasx-update.log"));
+                if (installed != "test-version" || !log.Contains("替换脚本开始执行"))
+                    throw new InvalidDataException("PowerShell 未执行完整替换。版本：" +
+                        installed + Environment.NewLine + log);
             }
             finally
             {
