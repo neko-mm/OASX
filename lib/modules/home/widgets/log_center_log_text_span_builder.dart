@@ -157,7 +157,12 @@ class _LogTextSpanBuilder {
 
   /// Styles the INFO token.
   static TextStyle _styleInfo(TextStyle base) {
-    return base.copyWith(color: const Color.fromARGB(255, 55, 109, 136));
+    final darkBackground = (base.color?.computeLuminance() ?? 1) > 0.5;
+    return base.copyWith(
+      color: darkBackground
+          ? const Color(0xFF8AB7C9)
+          : const Color(0xFF24576B),
+    );
   }
 
   /// Styles the WARNING token.

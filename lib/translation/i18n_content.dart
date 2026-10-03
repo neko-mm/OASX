@@ -176,6 +176,8 @@ class I18n {
       homeEmptyScriptHint = 'home_empty_script_hint';
   static const String homeLoadingAutoDeploying = 'home_loading_auto_deploying',
       homeGoDeployPage = 'home_go_deploy_page',
+      homeTaskSaved = 'home_task_saved',
+      homeTaskSaveFailed = 'home_task_save_failed',
       homeDeployPreparing = 'home_deploy_preparing',
       homeDeployUpdating = 'home_deploy_updating',
       homeDeployInstalling = 'home_deploy_installing',

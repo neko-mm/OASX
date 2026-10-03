@@ -52,6 +52,32 @@ class AppBackground extends StatelessWidget {
               ? const Color(0xFF101A22).withValues(alpha: 0.48)
               : Colors.white.withValues(alpha: 0.18),
         ),
+        if (dark) ...[
+          const IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0.65, -0.85),
+                  radius: 1.2,
+                  colors: [Color(0x28158FB3), Colors.transparent],
+                  stops: [0, 1],
+                ),
+              ),
+            ),
+          ),
+          const IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(-0.95, 0.9),
+                  radius: 0.95,
+                  colors: [Color(0x20117891), Colors.transparent],
+                  stops: [0, 1],
+                ),
+              ),
+            ),
+          ),
+        ],
         child,
       ],
     );

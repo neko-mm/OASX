@@ -161,7 +161,14 @@ class _OasSourceDialogState extends State<OasSourceDialog> {
   @override
   Widget build(BuildContext context) {
     final branches = <String>{'mine', 'personal', _branch}.toList();
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final accent = dark ? const Color(0xFF80D8F3) : const Color(0xFF087C9D);
     return Dialog(
+      backgroundColor: dark ? const Color(0xFF152834) : const Color(0xFFF5FAFC),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.zero,
+        side: BorderSide(color: accent.withValues(alpha: 0.55)),
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 630),
         child: SingleChildScrollView(
@@ -194,15 +201,19 @@ class _OasSourceDialogState extends State<OasSourceDialog> {
                 enabled: !_busy && _path.isNotEmpty,
                 decoration: InputDecoration(
                   labelText: I18n.oasRepository.tr,
-                  border: const OutlineInputBorder(),
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.zero,
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
-      DropdownButtonFormField<String>(
+              DropdownButtonFormField<String>(
                 initialValue: _branch,
                 decoration: InputDecoration(
                   labelText: I18n.oasBranch.tr,
-                  border: const OutlineInputBorder(),
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.zero,
+                  ),
                 ),
                 items: branches
                     .map((branch) => DropdownMenuItem(
@@ -227,20 +238,63 @@ class _OasSourceDialogState extends State<OasSourceDialog> {
                 runSpacing: 8,
                 children: [
                   TextButton(
+                    style: TextButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.zero,
+                      ),
+                    ),
                     onPressed: _busy ? null : () => Get.back(),
-                    child: Text(I18n.cancel.tr),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 2,
+                          height: 17,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(I18n.cancel.tr),
+                      ],
+                    ),
                   ),
                   OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: accent,
+                      side: BorderSide(color: accent),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.zero,
+                      ),
+                    ),
                     onPressed: _busy || _path.isEmpty
                         ? null
                         : () => _save(restart: false),
                     child: Text(I18n.oasSaveOnly.tr),
                   ),
                   FilledButton(
+                    style: FilledButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: dark
+                          ? const Color(0xFF176C85)
+                          : const Color(0xFF087C9D),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.zero,
+                      ),
+                    ),
                     onPressed: _busy || _path.isEmpty
                         ? null
                         : () => _save(restart: true),
-                    child: Text(I18n.oasSaveAndRestart.tr),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 2,
+                          height: 17,
+                          color: Colors.white.withValues(alpha: 0.88),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(I18n.oasSaveAndRestart.tr),
+                      ],
+                    ),
                   ),
                 ],
               ),

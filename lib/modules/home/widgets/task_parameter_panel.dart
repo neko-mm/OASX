@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:oasx/modules/args/index.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
 import 'package:oasx/modules/home/models/config_model.dart';
+import 'package:oasx/modules/home/models/home_workbench_layout.dart';
 import 'package:oasx/modules/home/widgets/task_json_transfer_actions.dart';
 import 'package:oasx/translation/i18n_content.dart';
 
@@ -115,6 +116,13 @@ class _TaskParameterPanelState extends State<TaskParameterPanel> {
                   onCancel: () async {
                     await widget.controller.closeTaskParameters();
                   },
+                  onSaveResult: widget.controller.workbenchLayoutMode.value ==
+                          HomeWorkbenchLayoutMode.singlePane
+                      ? null
+                      : (success) => widget.controller.showTaskFeedback(
+                            _taskName.tr,
+                            success: success,
+                          ),
                 );
               },
             ),

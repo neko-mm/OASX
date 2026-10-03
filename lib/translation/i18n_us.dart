@@ -151,6 +151,8 @@ final Map<String, String> _us_ui = {
   I18n.homeEmptyScriptHint: 'Add a config first',
   I18n.homeLoadingAutoDeploying: 'Deploying OAS',
   I18n.homeGoDeployPage: 'Go to deploy page',
+  I18n.homeTaskSaved: 'Saved',
+  I18n.homeTaskSaveFailed: 'Update failed',
   I18n.homeDeployPreparing: 'Preparing deployment',
   I18n.homeDeployUpdating: 'Checking OAS updates',
   I18n.homeDeployInstalling: 'Running installer',

@@ -136,6 +136,63 @@ class _ConfigCollectionPanelState extends State<ConfigCollectionPanel> {
                         ),
                       ),
               ),
+              const SizedBox(height: 8),
+              Divider(
+                height: 1,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              SizedBox(
+                height: 48,
+                child: Obx(() {
+                  final feedback = widget.controller.taskFeedback.value;
+                  if (feedback == null) return const SizedBox.shrink();
+                  final dark = Theme.of(context).brightness == Brightness.dark;
+                  final color = feedback.success
+                      ? (dark
+                          ? const Color(0xFF80D8F3)
+                          : const Color(0xFF087C9D))
+                      : Theme.of(context).colorScheme.error;
+                  final time = feedback.time;
+                  final result = feedback.success
+                      ? I18n.homeTaskSaved.tr
+                      : I18n.homeTaskSaveFailed.tr;
+                  final clock = '${time.hour.toString().padLeft(2, '0')}:'
+                      '${time.minute.toString().padLeft(2, '0')}:'
+                      '${time.second.toString().padLeft(2, '0')}';
+                  return Semantics(
+                    liveRegion: true,
+                    child: Row(
+                      children: [
+                        Icon(
+                          feedback.success
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.error_outline_rounded,
+                          size: 20,
+                          color: color,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${feedback.taskName} · $result',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: color, fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          clock,
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
             ],
           );
         }),

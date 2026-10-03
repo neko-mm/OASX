@@ -215,6 +215,8 @@ final Map<String, String> _cn_ui = {
   I18n.homeEmptyScriptHint: '请先添加一个配置',
   I18n.homeLoadingAutoDeploying: '正在自动部署',
   I18n.homeGoDeployPage: '前往部署页面',
+  I18n.homeTaskSaved: '已保存',
+  I18n.homeTaskSaveFailed: '修改失败',
   I18n.homeDeployPreparing: '正在准备部署',
   I18n.homeDeployUpdating: '正在检查 OAS 更新',
   I18n.homeDeployInstalling: '正在运行安装程序',

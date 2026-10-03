@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:get/get.dart';
@@ -95,6 +96,19 @@ enum HomeTaskCatalogFilter {
   disabled,
 }
 
+/// 一条任务操作结果；左侧状态带逐条显示，不合并。
+class HomeTaskFeedback {
+  const HomeTaskFeedback({
+    required this.taskName,
+    required this.success,
+    required this.time,
+  });
+
+  final String taskName;
+  final bool success;
+  final DateTime time;
+}
+
 /// Returns the visible workbench tabs for the active layout mode.
 List<HomeWorkbenchTab> resolveHomeWorkbenchTabs(
   HomeWorkbenchLayoutMode mode,
@@ -159,6 +173,9 @@ class HomeDashboardController extends GetxController {
   final activeTaskName = ''.obs;
   final activeDragPayload = Rxn<ConfigDragPayload>();
   final pendingDragCopyTargets = <String>[].obs;
+  final taskFeedback = Rxn<HomeTaskFeedback>();
+  final Queue<HomeTaskFeedback> _taskFeedbackQueue = Queue<HomeTaskFeedback>();
+  Timer? _taskFeedbackTimer;
   final _taskParameterEntrySource = Rxn<HomeTaskParameterEntrySource>();
   final _taskAvailabilityCache = <String, bool>{};
 
@@ -181,9 +198,37 @@ class HomeDashboardController extends GetxController {
 
   @override
   void onClose() {
+    _taskFeedbackTimer?.cancel();
+    _taskFeedbackQueue.clear();
     _workspaceSyncWorker?.dispose();
     _workspaceSyncWorker = null;
     super.onClose();
+  }
+
+  void showTaskFeedback(String taskName, {required bool success}) {
+    _taskFeedbackQueue.add(HomeTaskFeedback(
+      taskName: taskName,
+      success: success,
+      time: DateTime.now(),
+    ));
+    if (_taskFeedbackTimer == null) {
+      _showNextTaskFeedback();
+    }
+  }
+
+  void _showNextTaskFeedback() {
+    _taskFeedbackTimer?.cancel();
+    if (_taskFeedbackQueue.isEmpty) {
+      taskFeedback.value = null;
+      _taskFeedbackTimer = null;
+      return;
+    }
+    final next = _taskFeedbackQueue.removeFirst();
+    taskFeedback.value = next;
+    _taskFeedbackTimer = Timer(
+      Duration(milliseconds: next.success ? 1800 : 3200),
+      _showNextTaskFeedback,
+    );
   }
 
   void setControlScripts(Iterable<String> scripts) {

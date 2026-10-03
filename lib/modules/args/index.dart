@@ -61,6 +61,7 @@ class Args extends StatelessWidget {
     this.onGroupDragEnded,
     this.setArgumentOverride,
     this.onCancel,
+    this.onSaveResult,
   }) : super(key: key);
 
   final String? scriptName;
@@ -74,6 +75,7 @@ class Args extends StatelessWidget {
   final VoidCallback? onGroupDragEnded;
   final SetArgumentCallback? setArgumentOverride;
   final Future<void> Function()? onCancel;
+  final ValueChanged<bool>? onSaveResult;
 
   @override
   Widget build(BuildContext context) {
@@ -143,6 +145,7 @@ class Args extends StatelessWidget {
             scriptName: selectedScript,
             taskName: selectedTask,
             onCancel: onCancel,
+            onSaveResult: onSaveResult,
           ),
         ],
       );
@@ -217,11 +220,13 @@ class ArgsDraftBar extends StatelessWidget {
     required this.scriptName,
     required this.taskName,
     this.onCancel,
+    this.onSaveResult,
   });
 
   final String scriptName;
   final String taskName;
   final Future<void> Function()? onCancel;
+  final ValueChanged<bool>? onSaveResult;
 
   @override
   Widget build(BuildContext context) {
@@ -261,6 +266,10 @@ class ArgsDraftBar extends StatelessWidget {
                   ? null
                   : () async {
                       final ret = await controller.saveDraftChanges();
+                      if (onSaveResult != null) {
+                        onSaveResult!(ret);
+                        return;
+                      }
                       if (ret) {
                         final localizedTaskName = taskName.tr;
                         final contextText = scriptName.isEmpty

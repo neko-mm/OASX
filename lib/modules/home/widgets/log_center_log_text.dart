@@ -51,6 +51,7 @@ class LogCenterLogText extends StatelessWidget {
   /// Selects the monospace-friendly log text style.
   TextStyle _selectStyle(BuildContext context) {
     return Theme.of(context).textTheme.bodyMedium!.copyWith(
+      color: Theme.of(context).colorScheme.onSurface,
       fontFeatures: const [FontFeature.tabularFigures()],
       height: 1.4,
     );

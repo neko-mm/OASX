@@ -141,9 +141,7 @@ class ConfigWorkbench extends StatelessWidget {
       taskName: taskName,
       runNow: runNow,
     );
-    if (ret) {
-      Get.snackbar(I18n.success.tr, taskName.tr);
-    }
+    controller.showTaskFeedback(taskName.tr, success: ret);
   }
 
   Future<void> _setTaskNextRun(String taskName, String nextRun) async {
@@ -156,9 +154,7 @@ class ConfigWorkbench extends StatelessWidget {
       taskName: taskName,
       nextRun: nextRun,
     );
-    if (ret) {
-      Get.snackbar(I18n.success.tr, taskName.tr);
-    }
+    controller.showTaskFeedback(taskName.tr, success: ret);
   }
 
   Future<void> _renameScript(BuildContext context, String scriptName) async {
