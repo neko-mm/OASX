@@ -78,6 +78,16 @@ jobs:
           if (!(Test-Path $releasePath)) {
             $releasePath = Join-Path $env:GITHUB_WORKSPACE 'build/windows/runner/Release'
           }
+          $handoffPath = Join-Path $env:RUNNER_TEMP 'oasx-apply-handoff-verify.txt'
+          $handoff = Start-Process -FilePath (Join-Path $releasePath 'OASX.Launcher.exe') `
+            -ArgumentList @('--verify-apply-handoff', ('"' + $handoffPath + '"')) `
+            -WorkingDirectory $releasePath -Wait -PassThru
+          if (!(Test-Path $handoffPath)) { throw 'PowerShell handoff probe produced no result.' }
+          $handoffResult = Get-Content -LiteralPath $handoffPath -Raw
+          Write-Host $handoffResult
+          if ($handoff.ExitCode -ne 0 -or $handoffResult.Trim() -ne 'OK') {
+            throw 'Launcher could not hand off a staged package to PowerShell.'
+          }
           $resultPath = Join-Path $env:RUNNER_TEMP 'oasx-launcher-verify.txt'
           $probe = Start-Process -FilePath (Join-Path $releasePath 'OASX.Launcher.exe') `
             -ArgumentList @('--verify-test-update', ('"' + $resultPath + '"')) `

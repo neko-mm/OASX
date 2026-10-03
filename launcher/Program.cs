@@ -54,6 +54,20 @@ namespace OasxLauncher
                 }
                 return;
             }
+            if (args.Length == 2 && args[0] == "--verify-apply-handoff")
+            {
+                try
+                {
+                    LauncherForm.VerifyApplyHandoff();
+                    File.WriteAllText(args[1], "OK");
+                }
+                catch (Exception error)
+                {
+                    File.WriteAllText(args[1], error.ToString());
+                    Environment.ExitCode = 1;
+                }
+                return;
+            }
             if (args.Length == 1 && args[0] == "--settings")
             {
                 Application.Run(new ChannelSettingsForm());
@@ -412,22 +426,90 @@ namespace OasxLauncher
             File.Copy(applySource, applyTemp);
             SetStatus("正在安装更新", "");
             _skip.Enabled = false;
-            var psi = new ProcessStartInfo {
-                FileName = Path.Combine(Environment.GetFolderPath(
-                    Environment.SpecialFolder.System),
-                    "WindowsPowerShell\\v1.0\\powershell.exe"),
-                Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -File " +
-                    Quote(applyTemp) + " -InstallDir " + Quote(_installDir) +
-                    " -WorkRoot " + Quote(_workRoot) +
-                    " -LauncherPid " + Process.GetCurrentProcess().Id,
-                UseShellExecute = false, CreateNoWindow = true,
-                WorkingDirectory = Path.GetTempPath()
-            };
+            var psi = CreateApplyProcess(applyTemp, _installDir, _workRoot,
+                Process.GetCurrentProcess().Id, false);
             LogUpdate("正在启动替换脚本");
             using (var apply = Process.Start(psi))
                 LogUpdate("替换脚本已启动，进程 " + apply.Id);
             _finished = true;
             Close();
+        }
+
+        private static ProcessStartInfo CreateApplyProcess(string script,
+            string installDir, string workRoot, int launcherPid, bool testMode)
+        {
+            var log = Path.Combine(installDir, "oasx-update.log");
+            var command = "$ErrorActionPreference = 'Stop'; try { & " +
+                PowerShellLiteral(script) + " -InstallDir " + PowerShellLiteral(installDir) +
+                " -WorkRoot " + PowerShellLiteral(workRoot) +
+                " -LauncherPid " + launcherPid + (testMode ? " -TestMode" : "") +
+                " } catch { [System.IO.File]::AppendAllText(" + PowerShellLiteral(log) +
+                ", (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + " +
+                "' | PowerShell 调用失败：' + $_.ToString() + " +
+                "[Environment]::NewLine, [System.Text.Encoding]::UTF8); exit 1 }";
+            return new ProcessStartInfo {
+                FileName = Path.Combine(Environment.GetFolderPath(
+                    Environment.SpecialFolder.System),
+                    "WindowsPowerShell\\v1.0\\powershell.exe"),
+                Arguments = "-NoLogo -NoProfile -ExecutionPolicy Bypass -EncodedCommand " +
+                    Convert.ToBase64String(Encoding.Unicode.GetBytes(command)),
+                UseShellExecute = false, CreateNoWindow = true,
+                WorkingDirectory = Path.GetTempPath()
+            };
+        }
+
+        private static string PowerShellLiteral(string value)
+        {
+            return "'" + value.Replace("'", "''") + "'";
+        }
+
+        internal static void VerifyApplyHandoff()
+        {
+            var root = Path.Combine(Path.GetTempPath(),
+                "oasx-handoff-test-" + Guid.NewGuid().ToString("N"));
+            var install = Path.Combine(root, "install");
+            var work = Path.Combine(root, "work");
+            var stage = Path.Combine(work, "stage");
+            Directory.CreateDirectory(install);
+            Directory.CreateDirectory(stage);
+            try
+            {
+                File.WriteAllText(Path.Combine(install, "oasx.exe"), "old");
+                File.WriteAllText(Path.Combine(install, "OASX.Launcher.exe"), "old");
+                File.WriteAllLines(Path.Combine(install, "package-files.txt"),
+                    new[] { "oasx.exe", "OASX.Launcher.exe", "package-files.txt" });
+                File.WriteAllText(Path.Combine(stage, "oasx.exe"), "new");
+                File.WriteAllText(Path.Combine(stage, "OASX.Launcher.exe"), "new");
+                File.WriteAllText(Path.Combine(stage, "oasx-channel.txt"), "test");
+                File.WriteAllText(Path.Combine(stage, "oasx-release.txt"), "test-version");
+                var apply = Path.Combine(stage, "OASX.Update.Apply.ps1");
+                File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                    "OASX.Update.Apply.ps1"), apply);
+                var applyTemp = Path.Combine(work, "apply.ps1");
+                File.Copy(apply, applyTemp);
+                File.WriteAllLines(Path.Combine(stage, "package-files.txt"), new[] {
+                    "oasx.exe", "OASX.Launcher.exe", "oasx-channel.txt",
+                    "oasx-release.txt", "OASX.Update.Apply.ps1", "package-files.txt"
+                });
+                using (var process = Process.Start(CreateApplyProcess(applyTemp, install,
+                    work, 0, true)))
+                {
+                    if (!process.WaitForExit(30000) || process.ExitCode != 0)
+                        throw new InvalidDataException("PowerShell 更新交接测试失败：" +
+                            (File.Exists(Path.Combine(install, "oasx-update.log"))
+                                ? File.ReadAllText(Path.Combine(install, "oasx-update.log"))
+                                : "没有产生更新日志。"));
+                }
+                if (File.ReadAllText(Path.Combine(install, "oasx-release.txt")) !=
+                    "test-version" ||
+                    !File.ReadAllText(Path.Combine(install, "oasx-update.log"))
+                        .Contains("替换脚本开始执行"))
+                    throw new InvalidDataException("PowerShell 未执行完整替换。");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
         }
 
         private void LogUpdate(string message)
@@ -699,11 +781,6 @@ namespace OasxLauncher
                 try { Directory.Delete(_workRoot, true); }
                 catch { /* Windows may still be releasing the ZIP handle. */ }
             }
-        }
-
-        private static string Quote(string value)
-        {
-            return "\"" + value.Replace("\"", "\\\"") + "\"";
         }
 
         private static string SafeMessage(Exception error)
