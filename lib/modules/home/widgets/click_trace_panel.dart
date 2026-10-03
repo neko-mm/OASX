@@ -26,6 +26,7 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
   ClickTraceAccumulator _trace = ClickTraceAccumulator();
   final Set<String> _seenLineKeys = <String>{};
   ApiSseClient? _stream;
+  Timer? _midnightTimer;
   bool _loading = true;
   bool _truncated = false;
   String _error = '';
@@ -49,19 +50,31 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
   @override
   void dispose() {
     _generation++;
+    _midnightTimer?.cancel();
     unawaited(_stream?.dispose());
     super.dispose();
   }
 
+  void _scheduleMidnightReload() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    final nextDay = DateTime(now.year, now.month, now.day + 1);
+    _midnightTimer = Timer(nextDay.difference(now), () {
+      if (mounted) unawaited(_load());
+    });
+  }
+
   Future<void> _load() async {
     final generation = ++_generation;
+    final day = DateTime.now();
+    _scheduleMidnightReload();
     final previousStream = _stream;
     _stream = null;
     if (previousStream != null) {
       unawaited(previousStream.dispose());
     }
     setState(() {
-      _trace = ClickTraceAccumulator();
+      _trace = ClickTraceAccumulator(day: day);
       _seenLineKeys.clear();
       _loading = true;
       _truncated = false;
@@ -75,6 +88,7 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
       String liveCursor = '';
       bool foundRunStart = false;
       bool hasOlder = false;
+      bool reachedDayStart = false;
 
       for (var page = 0; page < _maxHistoryPages; page++) {
         final window = await ApiClient().getScriptLogWindow(
@@ -86,16 +100,23 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
         if (!mounted || generation != _generation) return;
         if (page == 0) liveCursor = window.liveCursor;
         final relevant = window.lines
-            .where(ClickTraceAccumulator.isRelevant)
+            .where((line) => ClickTraceAccumulator.isRelevantForDay(line, day))
             .toList(growable: false);
         pages.add(relevant);
         foundRunStart = relevant.any(ClickTraceAccumulator.isRunStart);
         hasOlder = window.hasOlder;
-        if (foundRunStart || !hasOlder || window.olderCursor == null) break;
+        reachedDayStart = ClickTraceAccumulator.reachedDayStart(
+          window.lines,
+          day,
+          hasOlder: hasOlder,
+        );
+        if (foundRunStart || reachedDayStart || window.olderCursor == null) {
+          break;
+        }
         olderCursor = window.olderCursor;
       }
 
-      final trace = ClickTraceAccumulator();
+      final trace = ClickTraceAccumulator(day: day);
       final seenKeys = <String>{};
       for (final page in pages.reversed) {
         for (final line in page) {
@@ -107,7 +128,10 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
         _trace = trace;
         _seenLineKeys.addAll(seenKeys);
         _loading = false;
-        _truncated = !foundRunStart && trace.entries.isNotEmpty;
+        _truncated = !foundRunStart &&
+            !reachedDayStart &&
+            hasOlder &&
+            trace.entries.isNotEmpty;
       });
       _startStream(liveCursor, generation);
     } catch (error) {
@@ -142,6 +166,13 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
 
   void _handleEvent(ApiSseEvent event, int generation) {
     if (!mounted || generation != _generation) return;
+    final now = DateTime.now();
+    if (_trace.day.year != now.year ||
+        _trace.day.month != now.month ||
+        _trace.day.day != now.day) {
+      unawaited(_load());
+      return;
+    }
     if (event.name == 'error') {
       setState(() => _error = event.data);
       return;
@@ -154,7 +185,7 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
       bool startedNewRun = false;
       for (final raw in rawLines.whereType<Map>()) {
         final line = ScriptLogLine.fromJson(raw.cast<String, dynamic>());
-        if (!ClickTraceAccumulator.isRelevant(line) ||
+        if (!ClickTraceAccumulator.isRelevantForDay(line, _trace.day) ||
             !_seenLineKeys.add(line.key)) {
           continue;
         }
