@@ -208,6 +208,9 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
   @override
   Widget build(BuildContext context) {
     final entries = _trace.entries;
+    final day = _trace.day;
+    final dayLabel = '${day.year}-${day.month.toString().padLeft(2, '0')}'
+        '-${day.day.toString().padLeft(2, '0')}';
     final colorScheme = Theme.of(context).colorScheme;
     final colors = <String, Color>{};
     for (final entry in entries) {
@@ -225,7 +228,7 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
         Row(
           children: [
             Text(
-              '${I18n.homeClicksTab.tr} ${visibleEntries.length}/${entries.length}',
+              '${I18n.homeClicksTab.tr} ${visibleEntries.length}/${entries.length} · $dayLabel',
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const Spacer(),
@@ -330,7 +333,11 @@ class _ClickTracePanelState extends State<ClickTracePanel> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          trailing: Text(entry.time),
+                          trailing: Text(
+                            '${entry.date}\n${entry.time}',
+                            textAlign: TextAlign.right,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                         );
                       },
                     ),

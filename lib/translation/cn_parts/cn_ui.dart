@@ -222,6 +222,7 @@ final Map<String, String> _cn_ui = {
   I18n.homeDeployInstalling: '正在运行安装程序',
   I18n.homeDeployStarting: '正在启动 OAS',
   I18n.homeDeployConnecting: '正在连接 OAS',
+  I18n.homeDeployConnectionPending: 'OAS 尚未连接，正在部署',
   I18n.homeDeployWaitingLog: '等待部署输出…',
   I18n.homeLoadingAutoLogin: '正在登录OAS，请稍后',
   I18n.homeLoadingConfigDetail: '正在加载配置详情，请稍后',

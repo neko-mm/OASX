@@ -158,6 +158,7 @@ final Map<String, String> _us_ui = {
   I18n.homeDeployInstalling: 'Running installer',
   I18n.homeDeployStarting: 'Starting OAS',
   I18n.homeDeployConnecting: 'Connecting to OAS',
+  I18n.homeDeployConnectionPending: 'OAS is not connected; deploying',
   I18n.homeDeployWaitingLog: 'Waiting for deployment output…',
   I18n.homeLoadingAutoLogin: 'Logging into OAS, please wait',
   I18n.homeLoadingConfigDetail: 'Loading config details, please wait',

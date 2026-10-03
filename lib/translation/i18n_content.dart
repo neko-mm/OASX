@@ -183,6 +183,7 @@ class I18n {
       homeDeployInstalling = 'home_deploy_installing',
       homeDeployStarting = 'home_deploy_starting',
       homeDeployConnecting = 'home_deploy_connecting',
+      homeDeployConnectionPending = 'home_deploy_connection_pending',
       homeDeployWaitingLog = 'home_deploy_waiting_log',
       homeLoadingAutoLogin = 'home_loading_auto_login',
       homeLoadingConfigDetail = 'home_loading_config_detail';

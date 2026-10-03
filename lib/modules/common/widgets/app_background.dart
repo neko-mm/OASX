@@ -25,7 +25,11 @@ class AppBackground extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: dark
-                  ? const [Color(0xFF34434B), Color(0xFF202C35), Color(0xFF19252E)]
+                  ? const [
+                      Color(0xFF29424F),
+                      Color(0xFF1B303C),
+                      Color(0xFF111F2A),
+                    ]
                   : const [Color(0xFFE2E8EC), Color(0xFFD3DDE3), Color(0xFFC8D7DD)],
             ),
           ),
@@ -49,7 +53,7 @@ class AppBackground extends StatelessWidget {
         }),
         ColoredBox(
           color: dark
-              ? const Color(0xFF101A22).withValues(alpha: 0.48)
+              ? const Color(0xFF101A22).withValues(alpha: 0.30)
               : Colors.white.withValues(alpha: 0.18),
         ),
         if (dark) ...[
@@ -57,9 +61,9 @@ class AppBackground extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: Alignment(0.65, -0.85),
-                  radius: 1.2,
-                  colors: [Color(0x28158FB3), Colors.transparent],
+                  center: Alignment(0.72, -0.82),
+                  radius: 1.15,
+                  colors: [Color(0x6635A8C5), Colors.transparent],
                   stops: [0, 1],
                 ),
               ),
@@ -69,9 +73,9 @@ class AppBackground extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: Alignment(-0.95, 0.9),
-                  radius: 0.95,
-                  colors: [Color(0x20117891), Colors.transparent],
+                  center: Alignment(-0.90, 0.85),
+                  radius: 1.10,
+                  colors: [Color(0x50406B9E), Colors.transparent],
                   stops: [0, 1],
                 ),
               ),

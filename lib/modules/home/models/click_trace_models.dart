@@ -4,6 +4,7 @@ import 'package:oasx/modules/log/log_browser_models.dart';
 class ClickTraceEntry {
   const ClickTraceEntry({
     required this.key,
+    required this.date,
     required this.time,
     required this.taskName,
     required this.targetName,
@@ -12,6 +13,7 @@ class ClickTraceEntry {
   });
 
   final String key;
+  final String date;
   final String time;
   final String taskName;
   final String targetName;
@@ -41,9 +43,17 @@ class ClickTraceAccumulator {
 
   static bool isRunStart(ScriptLogLine line) => _runStart.hasMatch(line.text);
 
+  static RegExpMatch? _dateMatch(ScriptLogLine line) =>
+      _date.firstMatch(line.text) ?? _fileDate.firstMatch(line.fileName);
+
+  static String? dateOf(ScriptLogLine line) {
+    final match = _dateMatch(line);
+    if (match == null) return null;
+    return '${match.group(1)}-${match.group(2)}-${match.group(3)}';
+  }
+
   static bool isOnDay(ScriptLogLine line, DateTime day) {
-    final match =
-        _date.firstMatch(line.text) ?? _fileDate.firstMatch(line.fileName);
+    final match = _dateMatch(line);
     if (match == null) return false;
     return int.parse(match.group(1)!) == day.year &&
         int.parse(match.group(2)!) == day.month &&
@@ -93,6 +103,7 @@ class ClickTraceAccumulator {
     entries.add(
       ClickTraceEntry(
         key: line.key,
+        date: dateOf(line) ?? '',
         time: _time.firstMatch(text)?.group(1) ?? '',
         taskName: currentTask,
         targetName: clickMatch.group(3) ?? '',

@@ -143,6 +143,27 @@ class _AutoDeployOverlayState extends State<AutoDeployOverlay>
             ),
           ),
         ),
+        Positioned(
+          left: 32,
+          bottom: 20,
+          child: Semantics(
+            liveRegion: true,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 360),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: dark
+                    ? const Color(0xDD12232D)
+                    : const Color(0xE8EAF3F6),
+                border: Border(left: BorderSide(color: accent, width: 2)),
+              ),
+              child: Text(
+                I18n.homeDeployConnectionPending.tr,
+                style: TextStyle(color: muted, fontSize: 13),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -4,7 +4,7 @@ import 'package:oasx/modules/log/log_browser_models.dart';
 
 ScriptLogLine logLine(int lineNo, String text, {String day = '2026-10-02'}) =>
     ScriptLogLine(
-      fileName: 'oas-$day.log',
+      fileName: '${day}_oas.txt',
       lineNo: lineNo,
       offset: lineNo * 100,
       byteLength: text.length,
@@ -32,6 +32,7 @@ void main() {
     expect(trace.entries.first.y, 35);
     expect(trace.entries.first.targetName, 'GB_BUFF_1');
     expect(trace.entries.last.taskName, 'DailyTrifles');
+    expect(trace.entries.last.date, '2026-10-02');
     expect(trace.entries.last.time, '10:00:04');
   });
 
@@ -45,6 +46,7 @@ void main() {
 
     expect(trace.entries, hasLength(1));
     expect(trace.entries.single.x, 300);
+    expect(trace.entries.single.date, '2026-10-02');
     expect(trace.entries.single.taskName, isEmpty);
   });
 
@@ -69,6 +71,7 @@ void main() {
     expect(ClickTraceAccumulator.isRelevantForDay(today, trace.day), isTrue);
     expect(trace.add(today), isTrue);
     expect(trace.entries.single.x, 300);
+    expect(trace.entries.single.date, '2026-10-03');
   });
 
   test('history loading stops after reaching yesterday\'s log lines', () {
@@ -84,6 +87,20 @@ void main() {
         hasOlder: true,
       ),
       isTrue,
+    );
+  });
+
+  test('uses the log timestamp when a file contains an older click', () {
+    final line = logLine(
+      1,
+      '2026-10-02 23:59:59 | INFO | Click ( 100, 200) @ OLD',
+      day: '2026-10-03',
+    );
+
+    expect(ClickTraceAccumulator.dateOf(line), '2026-10-02');
+    expect(
+      ClickTraceAccumulator.isOnDay(line, DateTime(2026, 10, 3)),
+      isFalse,
     );
   });
 

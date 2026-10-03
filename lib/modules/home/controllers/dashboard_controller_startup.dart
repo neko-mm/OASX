@@ -73,16 +73,19 @@ extension HomeDashboardStartupX on HomeDashboardController {
         return;
       }
 
-      if (showFailureSnack) {
-        Get.snackbar(I18n.loginError.tr, I18n.loginErrorMsg.tr);
-      }
       if (!enableAutoDeploy || !Get.isRegistered<SettingsController>()) {
+        if (showFailureSnack) {
+          Get.snackbar(I18n.loginError.tr, I18n.loginErrorMsg.tr);
+        }
         isStartupConnectionFailed.value = true;
         return;
       }
 
       final settings = Get.find<SettingsController>();
       if (!PlatformUtils.isDesktop || !settings.autoDeploy.value) {
+        if (showFailureSnack) {
+          Get.snackbar(I18n.loginError.tr, I18n.loginErrorMsg.tr);
+        }
         isStartupConnectionFailed.value = true;
         return;
       }
