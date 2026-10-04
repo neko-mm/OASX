@@ -42,7 +42,7 @@ dependencies:
   flutter_form_builder: ^10.2.0 # 表单
   form_builder_validators: ^11.0.0 # 表单验证
   get_storage: ^2.1.1 # 本地存储
-  flutter_secure_storage: ^11.2.0 # API 密钥使用系统安全存储
+  flutter_secure_storage: ^10.3.4 # API 密钥使用系统安全存储
   dio: ^5.9.2 # AI 文本请求
   expansion_tile_group: ^1.2.3 # 多级列表
 #  treemenu2: ^0.0.2 # 菜单
