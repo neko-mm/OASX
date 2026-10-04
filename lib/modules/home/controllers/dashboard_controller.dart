@@ -102,11 +102,13 @@ class HomeTaskFeedback {
     required this.taskName,
     required this.success,
     required this.time,
+    this.resultText,
   });
 
   final String taskName;
   final bool success;
   final DateTime time;
+  final String? resultText;
 }
 
 /// Returns the visible workbench tabs for the active layout mode.
@@ -173,9 +175,9 @@ class HomeDashboardController extends GetxController {
   final activeTaskName = ''.obs;
   final activeDragPayload = Rxn<ConfigDragPayload>();
   final pendingDragCopyTargets = <String>[].obs;
-  final taskFeedback = Rxn<HomeTaskFeedback>();
+  final taskFeedbacks = <HomeTaskFeedback>[].obs;
   final Queue<HomeTaskFeedback> _taskFeedbackQueue = Queue<HomeTaskFeedback>();
-  Timer? _taskFeedbackTimer;
+  final Map<HomeTaskFeedback, Timer> _taskFeedbackTimers = {};
   final _taskParameterEntrySource = Rxn<HomeTaskParameterEntrySource>();
   final _taskAvailabilityCache = <String, bool>{};
 
@@ -198,37 +200,44 @@ class HomeDashboardController extends GetxController {
 
   @override
   void onClose() {
-    _taskFeedbackTimer?.cancel();
+    for (final timer in _taskFeedbackTimers.values) {
+      timer.cancel();
+    }
+    _taskFeedbackTimers.clear();
     _taskFeedbackQueue.clear();
+    taskFeedbacks.clear();
     _workspaceSyncWorker?.dispose();
     _workspaceSyncWorker = null;
     super.onClose();
   }
 
-  void showTaskFeedback(String taskName, {required bool success}) {
+  void showTaskFeedback(
+    String taskName, {
+    required bool success,
+    String? resultText,
+  }) {
     _taskFeedbackQueue.add(HomeTaskFeedback(
       taskName: taskName,
       success: success,
       time: DateTime.now(),
+      resultText: resultText,
     ));
-    if (_taskFeedbackTimer == null) {
-      _showNextTaskFeedback();
-    }
+    _fillTaskFeedbackSlots();
   }
 
-  void _showNextTaskFeedback() {
-    _taskFeedbackTimer?.cancel();
-    if (_taskFeedbackQueue.isEmpty) {
-      taskFeedback.value = null;
-      _taskFeedbackTimer = null;
-      return;
+  void _fillTaskFeedbackSlots() {
+    while (taskFeedbacks.length < 2 && _taskFeedbackQueue.isNotEmpty) {
+      final next = _taskFeedbackQueue.removeFirst();
+      taskFeedbacks.add(next);
+      _taskFeedbackTimers[next] = Timer(
+        Duration(milliseconds: next.success ? 1800 : 3200),
+        () {
+          _taskFeedbackTimers.remove(next);
+          taskFeedbacks.remove(next);
+          _fillTaskFeedbackSlots();
+        },
+      );
     }
-    final next = _taskFeedbackQueue.removeFirst();
-    taskFeedback.value = next;
-    _taskFeedbackTimer = Timer(
-      Duration(milliseconds: next.success ? 1800 : 3200),
-      _showNextTaskFeedback,
-    );
   }
 
   void setControlScripts(Iterable<String> scripts) {
