@@ -71,4 +71,15 @@ void main() {
     expect(body.toString(), isNot(contains('image_url')));
     expect(body.toString(), isNot(contains('tools')));
   });
+
+  test('AI analysis asks for concise evidence-based sections', () {
+    final body = AiAnalysisService.analysisBody('model-a', '测试日志');
+    final messages = body['messages'] as List<dynamic>;
+    final instruction = messages.first['content'] as String;
+    expect(instruction, contains('运行结果'));
+    expect(instruction, contains('异常与恢复'));
+    expect(instruction, contains('需要核实'));
+    expect(instruction, contains('页面出现或重复点击不能单独证明'));
+    expect(instruction, contains('不要写免责声明'));
+  });
 }
