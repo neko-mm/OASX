@@ -1,5 +1,6 @@
 connectivity_plus_plugin.dll
 data
+flutter_secure_storage_windows_plugin.dll
 flutter_windows.dll
 irondash_engine_context_plugin.dll
 oasx-channel.txt
