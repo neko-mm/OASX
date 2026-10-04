@@ -111,91 +111,144 @@ class _AiSettingsCardState extends State<AiSettingsCard> {
 
   @override
   Widget build(BuildContext context) {
-    final border = OutlineInputBorder(borderRadius: BorderRadius.circular(2));
-    return SettingCard(
-      title: 'AI 日志分析',
-      items: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DropdownButtonFormField<AiProvider>(
-                key: ValueKey(_provider),
-                initialValue: _provider,
-                decoration: InputDecoration(labelText: 'AI 服务', border: border),
-                items: AiProvider.values
-                    .map((provider) => DropdownMenuItem(
-                          value: provider,
-                          child: Text(provider.label),
-                        ))
-                    .toList(),
-                onChanged: _busy
-                    ? null
-                    : (provider) {
-                        if (provider != null) _switch(provider);
-                      },
+    const fieldWidth = 360.0;
+    const fieldDecoration = InputDecoration(
+      isDense: true,
+      border: UnderlineInputBorder(),
+      contentPadding: EdgeInsets.symmetric(vertical: 9),
+    );
+    return SizedBox(
+      width: double.infinity,
+      child: SettingCard(
+        title: 'AI 日志分析',
+        items: [
+          _AiSettingRow(
+            label: 'AI 服务',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: fieldWidth),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<AiProvider>(
+                  value: _provider,
+                  isExpanded: true,
+                  items: AiProvider.values
+                      .map((provider) => DropdownMenuItem(
+                            value: provider,
+                            child: Text(provider.label),
+                          ))
+                      .toList(),
+                  onChanged: _busy
+                      ? null
+                      : (provider) {
+                          if (provider != null) _switch(provider);
+                        },
+                ),
               ),
-              const SizedBox(height: 12),
-              TextField(
+            ),
+          ),
+          _AiSettingRow(
+            label: '模型',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: fieldWidth),
+              child: TextField(
                 controller: _model,
-                decoration: InputDecoration(labelText: '模型', border: border),
+                decoration: fieldDecoration.copyWith(hintText: '模型名称'),
               ),
-              const SizedBox(height: 12),
-              TextField(
+            ),
+          ),
+          _AiSettingRow(
+            label: 'API 密钥',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: fieldWidth),
+              child: TextField(
                 controller: _key,
                 obscureText: true,
                 enableSuggestions: false,
                 autocorrect: false,
-                decoration: InputDecoration(
-                  labelText: 'API 密钥',
-                  hintText: _hasSavedKey ? '已保存；留空则保持原密钥' : '输入密钥',
-                  border: border,
+                decoration: fieldDecoration.copyWith(
+                  hintText: _hasSavedKey ? '已保存 · 留空不修改' : '输入密钥',
                 ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: _busy ? null : _save,
-                    child: const Text('保存'),
-                  ),
+            ),
+          ),
+          _AiSettingRow(
+            label: '连接',
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: _busy ? null : _save,
+                  child: const Text('保存'),
+                ),
+                TextButton(
+                  onPressed: _busy ? null : _test,
+                  child: const Text('测试连接'),
+                ),
+                if (_hasSavedKey)
                   TextButton(
-                    onPressed: _busy ? null : _test,
-                    child: const Text('测试连接'),
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            await _settings.deleteKey(_provider);
+                            if (mounted) {
+                              setState(() {
+                                _hasSavedKey = false;
+                                _status = '密钥已清除';
+                              });
+                            }
+                          },
+                    child: const Text('清除密钥'),
                   ),
-                  if (_hasSavedKey)
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () async {
-                              await _settings.deleteKey(_provider);
-                              if (mounted) {
-                                setState(() {
-                                  _hasSavedKey = false;
-                                  _status = '密钥已清除';
-                                });
-                              }
-                            },
-                      child: const Text('清除密钥'),
-                    ),
-                ],
-              ),
-              if (_status.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(_status, style: Theme.of(context).textTheme.bodySmall),
               ],
-              const SizedBox(height: 4),
-              Text(
-                '只在确认发送后请求 AI；不同服务的密钥分别保存在本机。',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+            ),
+          ),
+          if (_status.isNotEmpty)
+            _AiSettingRow(
+              label: '状态',
+              child: Text(_status, style: Theme.of(context).textTheme.bodySmall),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiSettingRow extends StatelessWidget {
+  const _AiSettingRow({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 520;
+        if (narrow) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label),
+                const SizedBox(height: 4),
+                Align(alignment: Alignment.centerRight, child: child),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Text(label),
+              const Spacer(),
+              child,
             ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
