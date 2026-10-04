@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import 'package:oasx/modules/common/widgets/appbar.dart';
 import 'package:oasx/modules/settings/oas_card.dart';
+import 'package:oasx/modules/settings/ai_settings_card.dart';
 import 'package:oasx/modules/settings/appearance_card.dart';
 import 'package:oasx/modules/settings/settings_leave_handler.dart';
 import 'package:oasx/modules/settings/system_card.dart';
@@ -44,6 +45,12 @@ class _SettingsViewState extends State<SettingsView> {
       navTitleBuilder: () => 'OAS${I18n.setting.tr}',
       cardBuilder: () => const OasSettingsCard(),
     ),
+    if (PlatformUtils.isWindows)
+      _SettingsSection(
+        key: GlobalKey(),
+        navTitleBuilder: () => 'AI 分析',
+        cardBuilder: () => const AiSettingsCard(),
+      ),
     _SettingsSection(
       key: GlobalKey(),
       navTitleBuilder: () => I18n.appearance.tr,
