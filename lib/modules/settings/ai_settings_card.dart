@@ -121,7 +121,8 @@ class _AiSettingsCardState extends State<AiSettingsCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<AiProvider>(
-                value: _provider,
+                key: ValueKey(_provider),
+                initialValue: _provider,
                 decoration: InputDecoration(labelText: 'AI 服务', border: border),
                 items: AiProvider.values
                     .map((provider) => DropdownMenuItem(
