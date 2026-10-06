@@ -25,8 +25,12 @@ class AiAnalysisService {
       );
       pages.add(window.lines);
       if (AiLogAnalysis.hasCycleBoundary(pages)) break;
-      if (!window.hasOlder || window.olderCursor == null ||
-          window.olderCursor == cursor || window.lines.isEmpty) break;
+      if (!window.hasOlder ||
+          window.olderCursor == null ||
+          window.olderCursor == cursor ||
+          window.lines.isEmpty) {
+        break;
+      }
       if (page == 15) {
         historyIncomplete = true;
         break;
