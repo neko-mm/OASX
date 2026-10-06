@@ -47,7 +47,7 @@ class ConfigCollectionTile extends StatelessWidget {
           final rowColor = isActive
               ? theme.colorScheme.primaryContainer.withValues(alpha: 0.18)
               : Colors.transparent;
-          final state = controller.scriptCollectionStateFor(script);
+          final state = script.state.value;
           final accentColor = _accentColor(context, state);
           return Material(
             color: rowColor,
@@ -113,14 +113,12 @@ class ConfigCollectionTile extends StatelessWidget {
     );
   }
 
-  Color _accentColor(BuildContext context, HomeScriptStateFilter value) {
+  Color _accentColor(BuildContext context, ScriptState value) {
     final scheme = Theme.of(context).colorScheme;
     return switch (value) {
-      HomeScriptStateFilter.running => Colors.green.shade600,
-      HomeScriptStateFilter.stopped => scheme.outline,
-      HomeScriptStateFilter.abnormal => Colors.amber.shade600,
-      HomeScriptStateFilter.offline => scheme.outline,
-      HomeScriptStateFilter.all => scheme.outline,
+      ScriptState.running => Colors.green.shade600,
+      ScriptState.warning => Colors.amber.shade600,
+      ScriptState.inactive || ScriptState.updating => scheme.outline,
     };
   }
 }
@@ -219,16 +217,15 @@ class _PowerButton extends StatelessWidget {
   });
 
   final VoidCallback onTogglePower;
-  final HomeScriptStateFilter state;
+  final ScriptState state;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final active = state == HomeScriptStateFilter.running ||
-        state == HomeScriptStateFilter.abnormal;
+    final active = state == ScriptState.running || state == ScriptState.warning;
     return IconButton(
       onPressed: onTogglePower,
-      tooltip: state == HomeScriptStateFilter.running ? '停止任务' : '启动任务',
+      tooltip: state == ScriptState.running ? '停止任务' : '启动任务',
       visualDensity: VisualDensity.compact,
       constraints: const BoxConstraints.tightFor(width: 32, height: 32),
       padding: EdgeInsets.zero,
