@@ -43,6 +43,29 @@ function Remove-Managed([string]$path) {
     }
 }
 
+function Assert-Unlocked([string[]]$names) {
+    foreach ($name in $names) {
+        $path = Join-Path $InstallDir $name
+        if (-not (Test-Path -LiteralPath $path)) { continue }
+        $files = if (Test-Path -LiteralPath $path -PathType Container) {
+            @(Get-ChildItem -LiteralPath $path -File -Recurse | ForEach-Object { $_.FullName })
+        }
+        else { @($path) }
+        foreach ($file in $files) {
+            try {
+                $stream = [System.IO.File]::Open($file,
+                    [System.IO.FileMode]::Open,
+                    [System.IO.FileAccess]::Read,
+                    [System.IO.FileShare]::None)
+                $stream.Dispose()
+            }
+            catch {
+                throw "程序文件仍被占用，请关闭 OASX 后重试：$file"
+            }
+        }
+    }
+}
+
 function Show-Failure([string]$message) {
     Add-Type -AssemblyName System.Windows.Forms
     [System.Windows.Forms.MessageBox]::Show(
@@ -80,6 +103,20 @@ try {
         }
     }
 
+    $unlocked = $false
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+        try {
+            Assert-Unlocked $roots
+            $unlocked = $true
+            break
+        }
+        catch {
+            if ($attempt -eq 9) { throw }
+            Start-Sleep -Milliseconds 300
+        }
+    }
+    if (-not $unlocked) { throw '程序文件仍被占用。' }
+
     New-Item -ItemType Directory -Path $backup -Force | Out-Null
     foreach ($name in $roots) {
         $target = Join-Path $InstallDir $name
@@ -115,23 +152,31 @@ try {
 catch {
     $failure = $_.Exception.Message
     Trace "替换失败：$failure"
-    $rollbackOk = $true
-    try {
-        foreach ($name in $installed) {
+    if ($saved.Count -eq 0 -and $installed.Count -eq 0) {
+        Trace '安装未开始，旧版本未改动'
+        Remove-Item -LiteralPath $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue
+        if ($TestMode) { Write-Host "Update not applied: $failure" }
+        else { Show-Failure "更新未完成，原有程序未改动。`n$failure" }
+        exit 1
+    }
+
+    $rollbackErrors = @()
+    foreach ($name in $installed) {
+        try {
             Remove-Managed (Join-Path $InstallDir $name)
         }
-        foreach ($name in $saved) {
+        catch { $rollbackErrors += "移除 $name 失败：$($_.Exception.Message)" }
+    }
+    foreach ($name in $saved) {
+        try {
             $target = Join-Path $InstallDir $name
             Remove-Managed $target
             Move-Item -LiteralPath (Join-Path $backup $name) -Destination $target
         }
-    }
-    catch {
-        $rollbackOk = $false
-        $failure += "`n恢复旧版本也失败：$($_.Exception.Message)"
+        catch { $rollbackErrors += "恢复 $name 失败：$($_.Exception.Message)" }
     }
 
-    if ($rollbackOk) {
+    if ($rollbackErrors.Count -eq 0) {
         Trace '旧版本已恢复'
         if (-not $TestMode -and (Test-Path -LiteralPath $app)) {
             Start-Process -FilePath (Join-Path $InstallDir 'OASX.Launcher.exe') `
@@ -143,6 +188,7 @@ catch {
     }
     else {
         Trace '恢复旧版本失败'
+        $failure += "`n恢复旧版本也失败：$($rollbackErrors -join '; ')"
         if ($TestMode) { Write-Host "Rollback failed: $failure" }
         else { Show-Failure "更新失败，无法自动恢复。备份保留在：`n$backup`n$failure" }
     }
