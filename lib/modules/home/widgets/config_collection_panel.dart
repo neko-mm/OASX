@@ -148,9 +148,43 @@ class _ConfigCollectionPanelState extends State<ConfigCollectionPanel> {
                   return Semantics(
                     liveRegion: true,
                     child: Column(
-                      children: feedbacks
-                          .map((feedback) => _buildFeedbackRow(context, feedback))
-                          .toList(),
+                      children: List.generate(2, (index) {
+                        final feedback = index < feedbacks.length
+                            ? feedbacks[index] : null;
+                        return ClipRect(
+                          child: SizedBox(
+                            height: 34,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 280),
+                              layoutBuilder: (current, previous) => Stack(
+                                fit: StackFit.expand,
+                                children: [...previous, if (current != null) current],
+                              ),
+                              transitionBuilder: (child, animation) =>
+                                  AnimatedBuilder(
+                                animation: animation,
+                                child: child,
+                                builder: (context, child) => Opacity(
+                                  opacity: animation.value,
+                                  child: FractionalTranslation(
+                                    translation: Offset(0,
+                                        animation.status == AnimationStatus.reverse
+                                            ? animation.value - 1
+                                            : 1 - animation.value),
+                                    child: child,
+                                  ),
+                                ),
+                              ),
+                              child: feedback == null
+                                  ? SizedBox(key: ValueKey('empty-$index'))
+                                  : KeyedSubtree(
+                                      key: ValueKey(feedback),
+                                      child: _buildFeedbackRow(context, feedback),
+                                    ),
+                            ),
+                          ),
+                        );
+                      }),
                     ),
                   );
                 }),

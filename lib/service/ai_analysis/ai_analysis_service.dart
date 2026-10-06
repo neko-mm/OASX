@@ -12,27 +12,29 @@ class AiAnalysisService {
   final Dio _http;
   final ApiClient _api;
 
-  /// Load only text windows. Error screenshots are never requested here.
   Future<AiLogDraft> loadCurrentRun(String scriptName) async {
     final pages = <List<ScriptLogLine>>[];
     String? cursor;
-    for (var page = 0; page < 4; page++) {
+    var historyIncomplete = false;
+    for (var page = 0; page < 16; page++) {
       final window = await _api.getScriptLogWindow(
         scriptName,
         cursor: cursor,
-        limitLines: 300,
-        limitBytes: 524288,
+        limitLines: 1000,
+        limitBytes: 1048576,
       );
       pages.add(window.lines);
-      if (window.lines.any((line) =>
-          RegExp(r'Start scheduler loop:|开始运行任务调度：')
-              .hasMatch(line.text))) {
+      if (AiLogAnalysis.hasCycleBoundary(pages)) break;
+      if (!window.hasOlder || window.olderCursor == null ||
+          window.olderCursor == cursor || window.lines.isEmpty) break;
+      if (page == 15) {
+        historyIncomplete = true;
         break;
       }
-      if (!window.hasOlder || window.olderCursor == null) break;
       cursor = window.olderCursor;
     }
-    return AiLogAnalysis.prepare(pages);
+    return AiLogAnalysis.prepare(pages,
+        historyIncomplete: historyIncomplete);
   }
 
   static Map<String, dynamic> analysisBody(String model, String logText) => {
@@ -53,7 +55,7 @@ class AiAnalysisService {
           },
           {
             'role': 'user',
-            'content': '请分析以下 OAS 文字日志。日志可能不完整。\n\n$logText',
+            'content': '请分析以下 OAS 文字日志。已省略常规过程行；没有出现的细节不能视为未发生。日志可能不完整。\n\n$logText',
           },
         ],
       };

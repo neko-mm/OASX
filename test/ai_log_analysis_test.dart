@@ -32,14 +32,51 @@ void main() {
     expect(draft.lineCount, 1);
   });
 
+  test('long task keeps start, warning, recovery and end', () {
+    final lines = <ScriptLogLine>[
+      line(1, '开始运行任务调度：日常'),
+      line(2, '开始任务：八岐大蛇'),
+      for (var i = 3; i < 500; i++) line(i, '普通点击 $i'),
+      line(500, '12:00 WARNING | 页面切换失败'),
+      line(501, '重试点击'),
+      line(502, 'Page arrived page_main'),
+      for (var i = 503; i < 1000; i++) line(i, '普通点击 $i'),
+      line(1000, '任务结束：八岐大蛇'),
+      line(1001, '当前没有待运行任务，等待下次执行'),
+    ];
+    final draft = AiLogAnalysis.prepare([lines.sublist(700),
+      lines.sublist(0, 700)]);
+    expect(draft.partial, isFalse);
+    expect(draft.sourceLineCount, 1001);
+    expect(draft.lineCount, lessThan(30));
+    expect(draft.text, contains('开始任务：八岐大蛇'));
+    expect(draft.text, contains('页面切换失败'));
+    expect(draft.text, contains('Page arrived page_main'));
+    expect(draft.text, contains('任务结束：八岐大蛇'));
+  });
+
+  test('idle boundary excludes previous task cycle', () {
+    final draft = AiLogAnalysis.prepare([[
+      line(1, '开始运行任务调度：日常'),
+      line(2, '开始任务：昨天'),
+      line(3, '任务结束：昨天'),
+      line(4, '当前没有待运行任务，等待下次执行'),
+      line(5, '开始任务：今天'),
+      line(6, '任务结束：今天'),
+    ]]);
+    expect(draft.partial, isFalse);
+    expect(draft.text, contains('今天'));
+    expect(draft.text, isNot(contains('昨天')));
+  });
+
   test('sensitive lines and identifiers are removed before preview', () {
     final draft = AiLogAnalysis.prepare([[
       line(1, 'Start scheduler loop:'),
       line(2, '账号: neko 游戏角色'),
       line(3, 'api_key=sk-secret'),
-      line(4, r'module_path: D:\Users\neko\oas\script.py'),
-      line(5, 'contact neko@example.com at https://example.com'),
-      line(6, 'server 192.168.1.20:8080'),
+      line(4, r'WARNING module_path: D:\Users\neko\oas\script.py'),
+      line(5, 'WARNING contact neko@example.com at https://example.com'),
+      line(6, 'WARNING server 192.168.1.20:8080'),
     ]]);
     expect(draft.text, isNot(contains('游戏角色')));
     expect(draft.text, isNot(contains('sk-secret')));

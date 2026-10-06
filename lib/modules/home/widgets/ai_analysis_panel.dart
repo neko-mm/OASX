@@ -105,7 +105,8 @@ class _AiAnalysisPanelState extends State<AiAnalysisPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${draft.lineCount} 行文字日志${draft.partial ? ' · 记录不完整' : ''}。'
+                  '从 ${draft.sourceLineCount} 行中选取 ${draft.lineCount} 行关键日志'
+                  '${draft.partial ? ' · 记录不完整' : ''}。'
                   '请检查并删除可能包含账号的信息；不会发送截图。',
                 ),
                 const SizedBox(height: 12),

@@ -1,10 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:oasx/api/api_client.dart';
+import 'package:oasx/modules/common/models/storage_key.dart';
 import 'package:oasx/modules/home/widgets/ai_analysis_panel.dart';
 import 'package:oasx/modules/log/log_browser_models.dart';
 import 'package:oasx/modules/log/script_log_browser_controller.dart';
 import 'package:oasx/translation/i18n_content.dart';
+import 'package:oasx/utils/platform_utils.dart';
 
 part 'log_center_copy_dialog.dart';
 part 'log_center_error_view.dart';
@@ -104,22 +109,26 @@ class _LogCenterPanelState extends State<LogCenterPanel> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: Obx(
-              () => controller.activeTab.value == ScriptLogBrowserTab.info
-                  ? LogCenterInfoView(
-                      controller: controller,
-                      scrollController: _scrollController!,
-                      horizontalScrollController:
-                          _horizontalScrollController!,
-                      onScrollNotification: _handleScrollNotification,
-                    )
-                  : LogCenterErrorView(
-                      controller: controller,
-                      listScrollController: _errorListScrollController!,
-                      detailScrollController: _errorDetailScrollController!,
-                      detailHorizontalScrollController:
-                          _errorDetailHorizontalScrollController!,
-                    ),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onSecondaryTapDown: _showLogContextMenu,
+              child: Obx(
+                () => controller.activeTab.value == ScriptLogBrowserTab.info
+                    ? LogCenterInfoView(
+                        controller: controller,
+                        scrollController: _scrollController!,
+                        horizontalScrollController:
+                            _horizontalScrollController!,
+                        onScrollNotification: _handleScrollNotification,
+                      )
+                    : LogCenterErrorView(
+                        controller: controller,
+                        listScrollController: _errorListScrollController!,
+                        detailScrollController: _errorDetailScrollController!,
+                        detailHorizontalScrollController:
+                            _errorDetailHorizontalScrollController!,
+                      ),
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -127,6 +136,45 @@ class _LogCenterPanelState extends State<LogCenterPanel> {
         ],
       ),
     );
+  }
+
+  Future<void> _showLogContextMenu(TapDownDetails details) async {
+    if (!PlatformUtils.isWindows) return;
+    final root = GetStorage().read(StorageKey.rootPathServer.name);
+    final directory = root is String && root.trim().isNotEmpty
+        ? Directory('${root.trim()}${Platform.pathSeparator}log')
+        : null;
+    final available = directory != null && await directory.exists();
+    if (!mounted) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final point = overlay.globalToLocal(details.globalPosition);
+    final selected = await showMenu<bool>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        point.dx, point.dy,
+        overlay.size.width - point.dx, overlay.size.height - point.dy,
+      ),
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      items: [
+        PopupMenuItem<bool>(
+          value: true,
+          enabled: available,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.folder_open_outlined, size: 18),
+            const SizedBox(width: 10),
+            Text(available ? '打开日志文件夹' : '未找到日志文件夹'),
+          ]),
+        ),
+      ],
+    );
+    if (selected == true && directory != null) {
+      await Process.start('explorer.exe', [directory.path],
+          mode: ProcessStartMode.detached);
+    }
   }
 
   void _bindController(String scriptName) {

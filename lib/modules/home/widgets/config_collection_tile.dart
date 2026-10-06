@@ -47,10 +47,8 @@ class ConfigCollectionTile extends StatelessWidget {
           final rowColor = isActive
               ? theme.colorScheme.primaryContainer.withValues(alpha: 0.18)
               : Colors.transparent;
-          final accentColor = _accentColor(
-            context,
-            controller.scriptCollectionStateFor(script),
-          );
+          final state = controller.scriptCollectionStateFor(script);
+          final accentColor = _accentColor(context, state);
           return Material(
             color: rowColor,
             child: InkWell(
@@ -86,9 +84,10 @@ class ConfigCollectionTile extends StatelessWidget {
                             child: _ScriptMeta(
                               script: script,
                               compact: isCompact,
-                              accentColor: accentColor,
                               powerButton: _PowerButton(
                                 onTogglePower: onTogglePower,
+                                state: state,
+                                color: accentColor,
                               ),
                               popupButton: _ActionMenuButton(
                                 onRename: onRename,
@@ -119,8 +118,8 @@ class ConfigCollectionTile extends StatelessWidget {
     return switch (value) {
       HomeScriptStateFilter.running => Colors.green.shade600,
       HomeScriptStateFilter.stopped => scheme.outline,
-      HomeScriptStateFilter.abnormal => Colors.orange.shade700,
-      HomeScriptStateFilter.offline => Colors.orange.shade700,
+      HomeScriptStateFilter.abnormal => Colors.amber.shade600,
+      HomeScriptStateFilter.offline => scheme.outline,
       HomeScriptStateFilter.all => scheme.outline,
     };
   }
@@ -130,14 +129,12 @@ class _ScriptMeta extends StatelessWidget {
   const _ScriptMeta({
     required this.script,
     required this.compact,
-    required this.accentColor,
     required this.powerButton,
     required this.popupButton,
   });
 
   final ScriptModel script;
   final bool compact;
-  final Color accentColor;
   final Widget powerButton;
   final Widget popupButton;
 
@@ -148,28 +145,20 @@ class _ScriptMeta extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _RegularAccentBar(
-              key: ValueKey<String>('config-accent-bar-${script.name}'),
-              color: accentColor,
-            ),
-            const SizedBox(width: 10),
+            powerButton,
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 4,
-                    runSpacing: 2,
-                    children: [powerButton, popupButton],
-                  ),
+                  ConfigCollectionScriptLabel(script: script, centered: false),
                   const SizedBox(height: 4),
-                  ConfigCollectionScriptLabel(script: script, centered: true),
+                  ConfigCollectionTaskPreview(script: script),
                 ],
               ),
             ),
+            popupButton,
           ],
         ),
       );
@@ -178,11 +167,8 @@ class _ScriptMeta extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _RegularAccentBar(
-            key: ValueKey<String>('config-accent-bar-${script.name}'),
-            color: accentColor,
-          ),
-          const SizedBox(width: 10),
+          powerButton,
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -195,7 +181,6 @@ class _ScriptMeta extends StatelessWidget {
             ),
           ),
           const SizedBox(width: ConfigCollectionTile._actionSpacing),
-          powerButton,
           popupButton,
         ],
       ),
@@ -226,46 +211,41 @@ class _DragCopyLoadingMask extends StatelessWidget {
   }
 }
 
-class _RegularAccentBar extends StatelessWidget {
-  const _RegularAccentBar({super.key, required this.color});
+class _PowerButton extends StatelessWidget {
+  const _PowerButton({
+    required this.onTogglePower,
+    required this.state,
+    required this.color,
+  });
 
+  final VoidCallback onTogglePower;
+  final HomeScriptStateFilter state;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 3,
-      height: double.infinity,
-      child: Center(
-        child: FractionallySizedBox(
-          heightFactor: 0.8,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.zero,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PowerButton extends StatelessWidget {
-  const _PowerButton({required this.onTogglePower});
-
-  final VoidCallback onTogglePower;
-
-  @override
-  Widget build(BuildContext context) {
+    final active = state == HomeScriptStateFilter.running ||
+        state == HomeScriptStateFilter.abnormal;
     return IconButton(
       onPressed: onTogglePower,
+      tooltip: state == HomeScriptStateFilter.running ? '停止任务' : '启动任务',
       visualDensity: VisualDensity.compact,
       constraints: const BoxConstraints.tightFor(width: 32, height: 32),
       padding: EdgeInsets.zero,
       iconSize: 23,
-      icon: const Icon(Icons.power_settings_new_rounded),
+      icon: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: active ? color.withValues(alpha: 0.13) : Colors.transparent,
+          boxShadow: active
+              ? [BoxShadow(color: color.withValues(alpha: 0.25), blurRadius: 9)]
+              : null,
+        ),
+        child: Icon(Icons.power_settings_new_rounded, color: color, size: 23),
+      ),
     );
   }
 }
