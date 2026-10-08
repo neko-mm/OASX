@@ -89,6 +89,14 @@ jobs:
           if ($proxyProbe.ExitCode -ne 0 -or (Get-Content -LiteralPath $proxyResultPath -Raw).Trim() -ne 'OK') {
             throw ('Proxy fallback probe failed: ' + (Get-Content -LiteralPath $proxyResultPath -Raw))
           }
+          $gitSafetyPath = Join-Path $env:RUNNER_TEMP 'oasx-git-safety-verify.txt'
+          $gitSafety = Start-Process -FilePath (Join-Path $releasePath 'OASX.Launcher.exe') `
+            -ArgumentList @('--verify-git-safety', ('"' + $gitSafetyPath + '"')) `
+            -WorkingDirectory $releasePath -Wait -PassThru
+          if (!(Test-Path $gitSafetyPath)) { throw 'Git safety probe produced no result.' }
+          if ($gitSafety.ExitCode -ne 0 -or (Get-Content -LiteralPath $gitSafetyPath -Raw).Trim() -ne 'OK') {
+            throw ('Git safety probe failed: ' + (Get-Content -LiteralPath $gitSafetyPath -Raw))
+          }
           $handoffPath = Join-Path $env:RUNNER_TEMP 'oasx-apply-handoff-verify.txt'
           $handoff = Start-Process -FilePath (Join-Path $releasePath 'OASX.Launcher.exe') `
             -ArgumentList @('--verify-apply-handoff', ('"' + $handoffPath + '"')) `

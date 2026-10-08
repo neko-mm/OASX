@@ -68,6 +68,21 @@ namespace OasxLauncher
                 }
                 return;
             }
+            if (args.Length == 2 && args[0] == "--verify-git-safety")
+            {
+                try
+                {
+                    GitUpdate.VerifyAutoDetection();
+                    GitUpdate.VerifyCacheRecovery();
+                    File.WriteAllText(args[1], "OK");
+                }
+                catch (Exception error)
+                {
+                    File.WriteAllText(args[1], error.ToString());
+                    Environment.ExitCode = 1;
+                }
+                return;
+            }
             if (args.Length == 2 && args[0] == "--verify-apply-handoff")
             {
                 try
@@ -197,7 +212,7 @@ namespace OasxLauncher
                     }
                 };
                 var gitHelp = new Label {
-                    Text = "未识别到 OAS 内置 Git，可手动选择",
+                    Text = "未识别到完整 Git，可手动选择",
                     Location = new Point(118, 126), Size = new Size(280, 22),
                     ForeColor = Color.FromArgb(151, 170, 186)
                 };
@@ -344,13 +359,45 @@ namespace OasxLauncher
                 }
                 var channel = UpdateChannel.Read(_installDir);
                 SetStatus("正在检查更新", channel == "test" ? "测试版" : "稳定版");
-                var git = channel == "test" ? GitUpdate.FindGit(_installDir) : null;
-                if (git != null)
+                ReleaseInfo release = null;
+                Exception releaseError = null;
+                if (channel == "test")
                 {
-                    await RunGitUpdateAsync(git);
-                    return;
+                    try { release = await GetLatestReleaseAsync(channel); }
+                    catch (Exception error) { releaseError = error; }
+                    if (_finished) return;
+                    if (_skipRequested) { LaunchInstalled(); return; }
+                    if (release != null && ReadText("oasx-channel.txt") == channel &&
+                        release.Tag == ReadText("oasx-release.txt"))
+                    {
+                        SetStatus("已是最新版本", release.Tag);
+                        await Task.Delay(500);
+                        LaunchInstalled();
+                        return;
+                    }
+                    var git = GitUpdate.FindGit(_installDir);
+                    if (git != null)
+                    {
+                        try
+                        {
+                            await RunGitUpdateAsync(git);
+                            if (_skipRequested && !_finished) LaunchInstalled();
+                            return;
+                        }
+                        catch (Exception error)
+                        {
+                            LogUpdate("Git 更新失败：" + error.Message);
+                            CleanupTemp();
+                            _workRoot = null;
+                            if (release == null) throw;
+                        }
+                    }
                 }
-                var release = await GetLatestReleaseAsync(channel);
+                if (release == null)
+                {
+                    if (releaseError != null) throw releaseError;
+                    release = await GetLatestReleaseAsync(channel);
+                }
                 if (_finished) return;
                 if (_skipRequested) { LaunchInstalled(); return; }
                 var installedTag = ReadText("oasx-release.txt");
