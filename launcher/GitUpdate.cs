@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -113,11 +114,13 @@ namespace OasxLauncher
             {
                 if (Directory.Exists(cache)) Directory.Delete(cache, true);
                 Run(git, "clone --quiet --depth 1 --single-branch --branch " + TestBranch +
-                    " " + Quote(Repository) + " " + Quote(cache));
+                    " " + Quote(Repository) + " " + Quote(cache), true,
+                    () => { if (Directory.Exists(cache)) Directory.Delete(cache, true); });
             }
             else
             {
-                Run(git, "-C " + Quote(cache) + " fetch --quiet --depth 1 origin " + TestBranch);
+                Run(git, "-C " + Quote(cache) + " fetch --quiet --depth 1 origin " + TestBranch,
+                    true);
                 Run(git, "-C " + Quote(cache) + " reset --quiet --hard FETCH_HEAD");
             }
             var revision = Run(git, "-C " + Quote(cache) + " rev-parse HEAD").Trim();
@@ -151,18 +154,70 @@ namespace OasxLauncher
                 CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
         }
 
-        private static string Run(string git, string args)
+        private static string Run(string git, string args, bool network = false,
+            Action beforeDirectRetry = null)
+        {
+            return RunWithFallback(direct => RunOnce(git, args, direct), network,
+                beforeDirectRetry);
+        }
+
+        private static string RunWithFallback(Func<bool, string> command,
+            bool network, Action beforeDirectRetry = null)
+        {
+            try { return command(false); }
+            catch (InvalidDataException error)
+            {
+                if (!network || !IsDeadLocalProxy(error.Message)) throw;
+                beforeDirectRetry?.Invoke();
+                try { return command(true); }
+                catch (Exception directError)
+                {
+                    throw new InvalidDataException(
+                        "本机代理不可用，已尝试直连；直连失败：" + directError.Message,
+                        directError);
+                }
+            }
+        }
+
+        private static bool IsDeadLocalProxy(string message)
+        {
+            var local = message.IndexOf("127.0.0.1", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("localhost", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("::1", StringComparison.OrdinalIgnoreCase) >= 0;
+            var refused = message.IndexOf("Connection refused", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("Failed to connect", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("Could not connect to proxy", StringComparison.OrdinalIgnoreCase) >= 0;
+            return local && refused;
+        }
+
+        private static ProcessStartInfo CreateGitStartInfo(string git, string args,
+            bool direct)
+        {
+            var prefix = direct
+                ? "-c http.proxy= -c https.proxy= -c http.https://github.com/.proxy= " +
+                  "-c remote.origin.proxy= "
+                : "";
+            var info = new ProcessStartInfo {
+                FileName = git, Arguments = prefix + args, UseShellExecute = false,
+                CreateNoWindow = true, RedirectStandardOutput = true,
+                RedirectStandardError = true, WorkingDirectory = Path.GetTempPath()
+            };
+            if (direct)
+            {
+                foreach (var name in new[] { "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
+                    "http_proxy", "https_proxy", "all_proxy" })
+                    info.EnvironmentVariables.Remove(name);
+            }
+            return info;
+        }
+
+        private static string RunOnce(string git, string args, bool direct)
         {
             using (var process = new Process())
             {
                 var output = new StringBuilder();
                 var error = new StringBuilder();
-                process.StartInfo = new ProcessStartInfo {
-                    FileName = git, Arguments = args, UseShellExecute = false,
-                    CreateNoWindow = true, RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    WorkingDirectory = Path.GetTempPath()
-                };
+                process.StartInfo = CreateGitStartInfo(git, args, direct);
                 process.OutputDataReceived += (sender, line) => {
                     if (line.Data != null) output.AppendLine(line.Data);
                 };
@@ -182,6 +237,48 @@ namespace OasxLauncher
                     throw new InvalidDataException("Git 拉取失败：" + error.ToString().Trim());
                 return output.ToString();
             }
+        }
+
+        internal static void VerifyProxyFallback()
+        {
+            var calls = new List<bool>();
+            var cleaned = false;
+            var result = RunWithFallback(direct => {
+                calls.Add(direct);
+                if (!direct) throw new InvalidDataException(
+                    "Git 拉取失败：Failed to connect to 127.0.0.1 port 7890: Connection refused");
+                return "OK";
+            }, true, () => cleaned = true);
+            if (result != "OK" || !cleaned || calls.Count != 2 ||
+                calls[0] || !calls[1])
+                throw new InvalidDataException("本机代理失败后未正确直连。 ");
+
+            calls.Clear();
+            try
+            {
+                RunWithFallback(direct => {
+                    calls.Add(direct);
+                    throw new InvalidDataException("Git 拉取失败：认证失败");
+                }, true);
+                throw new InvalidDataException("非代理故障被错误重试。");
+            }
+            catch (InvalidDataException error)
+            {
+                if (error.Message != "Git 拉取失败：认证失败" || calls.Count != 1)
+                    throw;
+            }
+
+            var original = Environment.GetEnvironmentVariable("HTTPS_PROXY");
+            try
+            {
+                Environment.SetEnvironmentVariable("HTTPS_PROXY", "http://127.0.0.1:7890");
+                var info = CreateGitStartInfo("git.exe", "fetch origin", true);
+                if (info.EnvironmentVariables["HTTPS_PROXY"] != null ||
+                    !info.Arguments.Contains("-c http.proxy=") ||
+                    !info.Arguments.Contains("-c remote.origin.proxy="))
+                    throw new InvalidDataException("直连重试仍使用代理设置。");
+            }
+            finally { Environment.SetEnvironmentVariable("HTTPS_PROXY", original); }
         }
 
         private static string Quote(string value)

@@ -81,6 +81,14 @@ jobs:
           if (!(Test-Path $releasePath)) {
             $releasePath = Join-Path $env:GITHUB_WORKSPACE 'build/windows/runner/Release'
           }
+          $proxyResultPath = Join-Path $env:RUNNER_TEMP 'oasx-proxy-fallback-verify.txt'
+          $proxyProbe = Start-Process -FilePath (Join-Path $releasePath 'OASX.Launcher.exe') `
+            -ArgumentList @('--verify-proxy-fallback', ('"' + $proxyResultPath + '"')) `
+            -WorkingDirectory $releasePath -Wait -PassThru
+          if (!(Test-Path $proxyResultPath)) { throw 'Proxy fallback probe produced no result.' }
+          if ($proxyProbe.ExitCode -ne 0 -or (Get-Content -LiteralPath $proxyResultPath -Raw).Trim() -ne 'OK') {
+            throw ('Proxy fallback probe failed: ' + (Get-Content -LiteralPath $proxyResultPath -Raw))
+          }
           $handoffPath = Join-Path $env:RUNNER_TEMP 'oasx-apply-handoff-verify.txt'
           $handoff = Start-Process -FilePath (Join-Path $releasePath 'OASX.Launcher.exe') `
             -ArgumentList @('--verify-apply-handoff', ('"' + $handoffPath + '"')) `

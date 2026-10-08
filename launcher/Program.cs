@@ -54,6 +54,20 @@ namespace OasxLauncher
                 }
                 return;
             }
+            if (args.Length == 2 && args[0] == "--verify-proxy-fallback")
+            {
+                try
+                {
+                    GitUpdate.VerifyProxyFallback();
+                    File.WriteAllText(args[1], "OK");
+                }
+                catch (Exception error)
+                {
+                    File.WriteAllText(args[1], error.ToString());
+                    Environment.ExitCode = 1;
+                }
+                return;
+            }
             if (args.Length == 2 && args[0] == "--verify-apply-handoff")
             {
                 try
