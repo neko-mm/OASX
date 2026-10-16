@@ -19,7 +19,11 @@ extension _ArgumentViewActions on _ArgumentViewState {
   }
 
   void onIntegerChanged(String? value) {
-    _applyValue(value ?? '', 'integer');
+    final input = value ?? '';
+    _applyValue(
+      model.title == 'boss_cnt' && input.isEmpty ? '0' : input,
+      'integer',
+    );
   }
 
   void onEnumChanged(String? value) {
