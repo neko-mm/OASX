@@ -29,9 +29,11 @@ class DeployStagePanel extends StatelessWidget {
     final failed = stages.any(
       (stage) => stage.status == DeployStageStatus.failed,
     );
-    final done =
-        stages.isNotEmpty &&
-        stages.every((stage) => stage.status == DeployStageStatus.done);
+    final done = stages.any(
+      (stage) =>
+          stage.id == (title == 'OAS 更新' ? 'finished' : 'service') &&
+          stage.status == DeployStageStatus.done,
+    );
     final status = failed
         ? '未完成'
         : done

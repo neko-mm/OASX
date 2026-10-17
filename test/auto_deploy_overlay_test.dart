@@ -104,6 +104,23 @@ void main() {
     },
   );
 
+  testWidgets('receiving 100 percent does not mark the whole update complete', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final progress = DeployProgress()
+      ..beginAttempt(0)
+      ..checkingUpdate()
+      ..updateAvailable();
+    progress.consume('Receiving objects: 100%');
+    await tester.pumpWidget(screen(progress));
+    await revealAll(tester);
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('已完成'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('compact viewport and retry reset have no overflow', (
     tester,
   ) async {
