@@ -9,6 +9,11 @@ class DeployGitPrefetcher {
     required this.rootPath,
     required this.log,
     required this.runShell,
+    required this.readShell,
+    required this.onAvailable,
+    required this.onUnchanged,
+    required this.onDisabled,
+    required this.onFetched,
   });
 
   /// OAS root path used as the Git working directory.
@@ -19,23 +24,86 @@ class DeployGitPrefetcher {
 
   /// Runs one shell command and reports whether it succeeded.
   final Future<bool> Function(String command, {bool allowFailure}) runShell;
+  final Future<String?> Function(String command, {bool allowFailure}) readShell;
+  final void Function() onAvailable;
+  final void Function() onUnchanged;
+  final void Function() onDisabled;
+  final void Function() onFetched;
 
   /// Fetches the configured branch with progress output.
   Future<bool> prefetchRepository() async {
     try {
       final config = DeployGitConfig.read(rootPath);
       if (!config.autoUpdate) {
+        onDisabled();
         return true;
       }
       final configured = await _configureRepository(config);
       if (!configured) {
         return false;
       }
-      return _fetchBranch(config);
+      final head = await _readGit(config, [
+        'rev-parse',
+        '--verify',
+        'HEAD',
+      ], allowFailure: true);
+      final remote = await _readGit(config, [
+        'ls-remote',
+        '--exit-code',
+        'origin',
+        'refs/heads/${config.branch}',
+      ]);
+      if (remote == null) return false;
+      final revision = parseRemoteRevision(remote, config.branch);
+      if (revision == null) {
+        log('ERROR: 未能读取远程分支版本：${config.branch}');
+        return false;
+      }
+      if (head?.trim() != revision) {
+        onAvailable();
+      } else {
+        onUnchanged();
+      }
+      if (!await _fetchBranch(config)) return false;
+      // 远程分支可能在检查与拉取之间更新。
+      final fetched = await _readGit(config, [
+        'rev-parse',
+        '--verify',
+        'FETCH_HEAD',
+      ]);
+      if (fetched == null) return false;
+      if (head?.trim() != fetched.trim()) onAvailable();
+      onFetched();
+      return true;
     } catch (e) {
       log('ERROR: Failed to prepare git fetch: $e');
       return false;
     }
+  }
+
+  static String? parseRemoteRevision(String output, String branch) {
+    for (final line in output.split('\n')) {
+      final parts = line.trim().split(RegExp(r'\s+'));
+      if (parts.length == 2 &&
+          parts[1] == 'refs/heads/$branch' &&
+          RegExp(r'^[0-9a-fA-F]{40,64}$').hasMatch(parts[0])) {
+        return parts[0];
+      }
+    }
+    return null;
+  }
+
+  Future<String?> _readGit(
+    DeployGitConfig config,
+    List<String> arguments, {
+    bool allowFailure = false,
+  }) {
+    final command = shellExecutableArguments(
+      config.getExecutablePath(rootPath),
+      arguments,
+    );
+    log('INFO: $command');
+    return readShell(command, allowFailure: allowFailure);
   }
 
   Future<bool> _configureRepository(DeployGitConfig config) async {

@@ -30,7 +30,7 @@ class DeployGitConfig {
 
   /// Reads deploy Git settings from the OAS root path.
   factory DeployGitConfig.read(String rootPath) {
-    final file = File('$rootPath\\config\\deploy.yaml');
+    final file = File('$rootPath/config/deploy.yaml');
     final yaml = loadYaml(file.readAsStringSync());
     final git = _gitSection(yaml);
 

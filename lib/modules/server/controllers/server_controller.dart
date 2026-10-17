@@ -13,6 +13,8 @@ import 'package:oasx/modules/server/models/deploy_command.dart';
 import 'package:oasx/modules/server/models/deploy_git_prefetcher.dart';
 import 'package:oasx/modules/server/models/deploy_python_config.dart';
 import 'package:oasx/modules/server/models/deploy_retry.dart';
+import 'package:oasx/modules/server/models/deploy_progress.dart';
+import 'package:oasx/modules/server/models/deploy_log_archive.dart';
 import 'package:oasx/modules/settings/controllers/settings_controller.dart';
 import 'package:oasx/service/locale_service.dart';
 import 'package:oasx/service/oas_git_locator.dart';
@@ -39,6 +41,9 @@ class ServerController extends GetxController with LogMixin {
   final deployPhase = I18n.homeDeployPreparing.obs;
   final deployRetryCount = 0.obs;
   final deployLogEntries = <DeployLogEntry>[].obs;
+  final deployProgress = DeployProgress().obs;
+  final _deployArchive = DeployLogArchive();
+  bool _recordingDeploy = false;
   static const maxDeployRetries = 5;
   DeployFailureMonitor? _failureMonitor;
   DeployRetryRunner? _retryRunner;
@@ -52,6 +57,7 @@ class ServerController extends GetxController with LogMixin {
   @override
   void addLog(String log) {
     _failureMonitor?.addLine(log);
+    _recordDeploymentLine(log);
     super.addLog(log);
     deployLogEntries.add(DeployLogEntry(DateTime.now(), log));
     if (deployLogEntries.length > 200) {
@@ -59,16 +65,26 @@ class ServerController extends GetxController with LogMixin {
     }
   }
 
+  void _recordDeploymentLine(String log) {
+    if (!_recordingDeploy) return;
+    _deployArchive.add(log);
+    if (deployProgress.value.consume(log)) deployProgress.refresh();
+  }
+
+  void _progress(void Function(DeployProgress progress) change) {
+    change(deployProgress.value);
+    deployProgress.refresh();
+  }
+
+  Future<String> readCompleteDeployLog() => _deployArchive.read();
+
   String get deployStatusText {
     final phase = deployPhase.value.tr;
     if (deployRetryCount.value == 0 ||
         deployPhase.value == I18n.homeDeployFailed) {
       return phase;
     }
-    return '$phase · ${I18n.homeDeployRetryCount.trParams({
-      'count': '${deployRetryCount.value}',
-      'total': '$maxDeployRetries',
-    })}';
+    return '$phase · ${I18n.homeDeployRetryCount.trParams({'count': '${deployRetryCount.value}', 'total': '$maxDeployRetries'})}';
   }
 
   @override
@@ -76,15 +92,17 @@ class ServerController extends GetxController with LogMixin {
     final index = deployLogEntries.lastIndexWhere(
       (entry) => shouldReplace(entry.line),
     );
-    final lastBefore =
-        deployLogEntries.isEmpty ? null : deployLogEntries.last;
+    final lastBefore = deployLogEntries.isEmpty ? null : deployLogEntries.last;
     super.upsertLog(log, shouldReplace);
-    final appendedBySuper = deployLogEntries.isNotEmpty &&
+    final appendedBySuper =
+        deployLogEntries.isNotEmpty &&
         !identical(deployLogEntries.last, lastBefore);
     if (index >= 0 && !appendedBySuper) {
+      _recordDeploymentLine(log);
       deployLogEntries.removeAt(index);
       deployLogEntries.add(DeployLogEntry(DateTime.now(), log));
     } else if (index < 0 && !appendedBySuper) {
+      _recordDeploymentLine(log);
       deployLogEntries.add(DeployLogEntry(DateTime.now(), log));
     }
   }
@@ -122,6 +140,7 @@ class ServerController extends GetxController with LogMixin {
     _retryRunner?.cancel();
     _failureMonitor?.fail();
     unawaited(_stopActiveCommand().catchError((Object _) {}));
+    unawaited(_deployArchive.close());
     super.onClose();
   }
 
@@ -271,6 +290,7 @@ class ServerController extends GetxController with LogMixin {
     String command, {
     bool allowFailure = false,
     bool ignorePythonwNotRunning = false,
+    void Function(List<ProcessResult> results)? onResult,
   }) async {
     if (ignorePythonwNotRunning) {
       _pythonwNotRunningLogged = false;
@@ -280,7 +300,8 @@ class ServerController extends GetxController with LogMixin {
     shell = active.shell;
     Future<bool> execute() async {
       try {
-        await active.run(command);
+        final results = await active.run(command);
+        onResult?.call(results);
         return true;
       } on ShellException catch (e) {
         if (ignorePythonwNotRunning && _isPythonwNotRunningException(e)) {
@@ -293,11 +314,10 @@ class ServerController extends GetxController with LogMixin {
         return false;
       }
     }
+
     final result = execute();
     final monitor = _failureMonitor;
-    return monitor == null
-        ? result
-        : monitor.watch(result, stop: active.stop);
+    return monitor == null ? result : monitor.watch(result, stop: active.stop);
   }
 
   Future<void> _stopActiveCommand() async {
@@ -365,13 +385,34 @@ class ServerController extends GetxController with LogMixin {
       rootPath: rootPathServer.value,
       log: addLog,
       runShell: runShell,
+      readShell: _readShell,
+      onAvailable: () => _progress((progress) => progress.updateAvailable()),
+      onUnchanged: () => _progress((progress) => progress.noUpdate()),
+      onDisabled: () =>
+          _progress((progress) => progress.noUpdate(disabled: true)),
+      onFetched: () => _progress((progress) => progress.fetched()),
     );
     return prefetcher.prefetchRepository();
   }
 
+  Future<String?> _readShell(
+    String command, {
+    bool allowFailure = false,
+  }) async {
+    String? output;
+    final succeeded = await runShell(
+      command,
+      allowFailure: allowFailure,
+      onResult: (results) =>
+          output = results.map((result) => '${result.stdout}').join('\n'),
+    );
+    return succeeded ? output : null;
+  }
+
   Future<bool> run({bool killAllPythonw = true}) {
-    return _deployment ??= _runWithRetries(killAllPythonw: killAllPythonw)
-        .whenComplete(() => _deployment = null);
+    return _deployment ??= _runWithRetries(
+      killAllPythonw: killAllPythonw,
+    ).whenComplete(() => _deployment = null);
   }
 
   Future<bool> _runWithRetries({required bool killAllPythonw}) async {
@@ -389,23 +430,37 @@ class ServerController extends GetxController with LogMixin {
         );
       }
       clearLog();
+      await _deployArchive.open(rootPathServer.value);
+      _recordingDeploy = true;
+      deployProgress.value = DeployProgress();
       final succeeded = await runner.run(
         attempt: (retry) async {
+          _progress((progress) => progress.beginAttempt(retry));
+          addLog('INFO: 开始 OAS 启动尝试（自动重试 $retry / $maxDeployRetries）');
           _failureMonitor = DeployFailureMonitor();
           final started = await _runDeployAttempt(
             killAllPythonw: killAllPythonw && retry == 0,
           );
-          if (!started) await _stopActiveCommand();
+          if (!started) {
+            _progress((progress) {
+              if (![
+                ...progress.startup,
+                ...progress.update,
+              ].any((stage) => stage.status == DeployStageStatus.failed)) {
+                progress.failed('本次尝试未成功，请查看完整日志了解原因');
+              }
+            });
+            await _stopActiveCommand();
+          }
           return started;
         },
         onRetry: (retry, delay) {
           deployRetryCount.value = retry;
           deployPhase.value = I18n.homeDeployRetrying;
-          addLog('WARNING: ${I18n.homeDeployRetryDelay.trParams({
-            'count': '$retry',
-            'total': '$maxDeployRetries',
-            'seconds': '${delay.inSeconds}',
-          })}');
+          _progress((progress) => progress.retrying(retry, delay));
+          addLog(
+            'WARNING: ${I18n.homeDeployRetryDelay.trParams({'count': '$retry', 'total': '$maxDeployRetries', 'seconds': '${delay.inSeconds}'})}',
+          );
         },
       );
       if (!succeeded && !runner.isCancelled) {
@@ -416,6 +471,7 @@ class ServerController extends GetxController with LogMixin {
     } catch (e) {
       deployPhase.value = I18n.homeDeployFailed;
       addLog('ERROR: OAS 启动失败：$e');
+      _progress((progress) => progress.failed('启动过程发生异常，请查看完整日志'));
       try {
         await _stopActiveCommand();
       } catch (stopError) {
@@ -425,6 +481,8 @@ class ServerController extends GetxController with LogMixin {
     } finally {
       _failureMonitor = null;
       _retryRunner = null;
+      _recordingDeploy = false;
+      await _deployArchive.close();
       isDeployLoading.value = false;
     }
   }
@@ -440,11 +498,16 @@ class ServerController extends GetxController with LogMixin {
       );
     }
     deployPhase.value = I18n.homeDeployUpdating;
+    _progress((progress) => progress.checkingUpdate());
     if (!await prefetchRepository() || _failureMonitor!.hasFailed) {
+      _progress(
+        (progress) => progress.failed('检查或拉取更新失败，请查看完整日志', duringUpdate: true),
+      );
       return false;
     }
     final pythonConfig = DeployPythonConfig.read(rootPathServer.value);
     deployPhase.value = I18n.homeDeployInstalling;
+    _progress((progress) => progress.installing());
     final installed = await runShell(
       shellExecutableArguments(
         pythonConfig.getPythonPath(rootPathServer.value),
@@ -454,6 +517,7 @@ class ServerController extends GetxController with LogMixin {
     if (!installed || _failureMonitor!.hasFailed) return false;
 
     deployPhase.value = I18n.homeDeployStarting;
+    _progress((progress) => progress.startingService());
     final serverRun = runShell(
       shellExecutableArguments(
         pythonConfig.getPythonwPath(rootPathServer.value),
@@ -469,6 +533,7 @@ class ServerController extends GetxController with LogMixin {
     final storedAddress = _storage.read<String>(StorageKey.address.name) ?? '';
     final address = storedAddress.isEmpty ? ApiClient().address : storedAddress;
     deployPhase.value = I18n.homeDeployConnecting;
+    _progress((progress) => progress.connecting());
     final connected = await Future.any([
       _tryConnect(
         address,
@@ -481,9 +546,17 @@ class ServerController extends GetxController with LogMixin {
       monitor.failed.then((_) => false),
     ]);
     if (!connected) {
+      _progress(
+        (progress) => progress.failed(
+          serverExited ? 'OAS 后台服务提前退出，请查看完整日志' : '等待 OAS 服务连接超时，请查看完整日志',
+          duringUpdate: false,
+        ),
+      );
       monitor.fail();
       await _stopActiveCommand();
       await serverRun;
+    } else {
+      _progress((progress) => progress.connected());
     }
     return connected;
   }
