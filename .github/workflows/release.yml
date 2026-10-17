@@ -68,6 +68,7 @@ jobs:
           flutter test test/ai_log_analysis_test.dart
           flutter test test/deploy_retry_test.dart
           flutter test test/deploy_progress_test.dart test/auto_deploy_overlay_test.dart
+          python3 -m unittest discover -s script -p 'test_publish_test_release.py'
           flutter analyze lib/modules/server/models/deploy_progress.dart lib/modules/server/models/deploy_log_archive.dart lib/modules/server/models/deploy_git_prefetcher.dart lib/modules/home/widgets/auto_deploy_overlay.dart lib/modules/home/widgets/deploy_stage_panel.dart test/deploy_progress_test.dart test/auto_deploy_overlay_test.dart
           flutter analyze lib/modules/server/models/deploy_retry.dart lib/modules/server/models/deploy_command.dart test/deploy_retry_test.dart
           flutter analyze lib/service/ai_analysis lib/modules/settings/ai_settings_card.dart lib/modules/home/widgets/ai_analysis_panel.dart
@@ -147,6 +148,9 @@ jobs:
       group: oasx-master-publication
       cancel-in-progress: false
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Download Windows test package
         uses: actions/download-artifact@v4
         with:
@@ -164,23 +168,10 @@ jobs:
             echo 'Newer master commit exists; skip this package.'
             exit 0
           fi
-          asset="oasx_test_${GITHUB_SHA}_windows.zip"
-          (cd oasx-test-package && zip -q -r "../$asset" .)
-          if ! gh release view oasx-master --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create oasx-master --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" --title 'OASX 测试版' \
-              --notes 'master 分支的 Windows 测试包，由云构建自动更新。' \
-              --prerelease
-          fi
-          gh release upload oasx-master "$asset" \
-            --repo "$GITHUB_REPOSITORY" --clobber
-          old_assets=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/oasx-master" \
-            --jq '.assets[].name | select(startswith("oasx_test_") and . != "'"$asset"'")')
-          while IFS= read -r old; do
-            [[ -z "$old" ]] && continue
-            gh release delete-asset oasx-master "$old" \
-              --repo "$GITHUB_REPOSITORY" --yes
-          done <<< "$old_assets"
+          python3 script/publish_test_release.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" --run-number "$GITHUB_RUN_NUMBER" \
+            --package-dir oasx-test-package --notes CHANGELATEST.md
 
   publish_master_git:
     name: Publish Master Git Package
