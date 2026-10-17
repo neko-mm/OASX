@@ -47,7 +47,9 @@ extension _HomeViewActions on _HomeViewState {
             }),
             const SizedBox(height: 12),
             Text(
-              I18n.homeConnectionRetryHint.tr,
+              controller.startupFailureMessage.value.isNotEmpty
+                  ? controller.startupFailureMessage.value
+                  : I18n.homeConnectionRetryHint.tr,
               textAlign: TextAlign.center,
             ),
           ],

@@ -9,8 +9,10 @@ import 'package:oasx/api/api_client.dart';
 import 'package:oasx/modules/common/models/storage_key.dart';
 import 'package:oasx/modules/home/controllers/dashboard_controller.dart';
 import 'package:oasx/modules/log/log_mixin.dart';
+import 'package:oasx/modules/server/models/deploy_command.dart';
 import 'package:oasx/modules/server/models/deploy_git_prefetcher.dart';
 import 'package:oasx/modules/server/models/deploy_python_config.dart';
+import 'package:oasx/modules/server/models/deploy_retry.dart';
 import 'package:oasx/modules/settings/controllers/settings_controller.dart';
 import 'package:oasx/service/locale_service.dart';
 import 'package:oasx/service/oas_git_locator.dart';
@@ -35,7 +37,13 @@ class ServerController extends GetxController with LogMixin {
   final autoLoginAfterDeploy = false.obs;
   final isDeployLoading = false.obs;
   final deployPhase = I18n.homeDeployPreparing.obs;
+  final deployRetryCount = 0.obs;
   final deployLogEntries = <DeployLogEntry>[].obs;
+  static const maxDeployRetries = 5;
+  DeployFailureMonitor? _failureMonitor;
+  DeployRetryRunner? _retryRunner;
+  DeployCommand? _activeCommand;
+  Future<bool>? _deployment;
   final _storage = GetStorage();
   Shell? shell;
   var shellController = ShellLinesController();
@@ -43,11 +51,24 @@ class ServerController extends GetxController with LogMixin {
 
   @override
   void addLog(String log) {
+    _failureMonitor?.addLine(log);
     super.addLog(log);
     deployLogEntries.add(DeployLogEntry(DateTime.now(), log));
     if (deployLogEntries.length > 200) {
       deployLogEntries.removeRange(0, deployLogEntries.length - 200);
     }
+  }
+
+  String get deployStatusText {
+    final phase = deployPhase.value.tr;
+    if (deployRetryCount.value == 0 ||
+        deployPhase.value == I18n.homeDeployFailed) {
+      return phase;
+    }
+    return '$phase · ${I18n.homeDeployRetryCount.trParams({
+      'count': '${deployRetryCount.value}',
+      'total': '$maxDeployRetries',
+    })}';
   }
 
   @override
@@ -94,6 +115,14 @@ class ServerController extends GetxController with LogMixin {
       readDeploy();
     }
     super.onInit();
+  }
+
+  @override
+  void onClose() {
+    _retryRunner?.cancel();
+    _failureMonitor?.fail();
+    unawaited(_stopActiveCommand().catchError((Object _) {}));
+    super.onClose();
   }
 
   void updateRootPathServer(String value) {
@@ -246,19 +275,33 @@ class ServerController extends GetxController with LogMixin {
     if (ignorePythonwNotRunning) {
       _pythonwNotRunningLogged = false;
     }
-    try {
-      await shell!.run(command);
-      return true;
-    } on ShellException catch (e) {
-      if (ignorePythonwNotRunning && _isPythonwNotRunningException(e)) {
-        if (!_pythonwNotRunningLogged) {
-          addLog('WARNING: pythonw.exe is not running, skip taskkill');
-        }
+    final active = DeployCommand(getShell);
+    _activeCommand = active;
+    shell = active.shell;
+    Future<bool> execute() async {
+      try {
+        await active.run(command);
         return true;
+      } on ShellException catch (e) {
+        if (ignorePythonwNotRunning && _isPythonwNotRunningException(e)) {
+          if (!_pythonwNotRunningLogged) {
+            addLog('WARNING: pythonw.exe is not running, skip taskkill');
+          }
+          return true;
+        }
+        _addShellExceptionLog(e, allowFailure: allowFailure);
+        return false;
       }
-      _addShellExceptionLog(e, allowFailure: allowFailure);
-      return false;
     }
+    final result = execute();
+    final monitor = _failureMonitor;
+    return monitor == null
+        ? result
+        : monitor.watch(result, stop: active.stop);
+  }
+
+  Future<void> _stopActiveCommand() async {
+    await _activeCommand?.stop();
   }
 
   /// Adds a shell exception using info or error severity.
@@ -326,10 +369,19 @@ class ServerController extends GetxController with LogMixin {
     return prefetcher.prefetchRepository();
   }
 
-  Future<bool> run({bool killAllPythonw = true}) async {
+  Future<bool> run({bool killAllPythonw = true}) {
+    return _deployment ??= _runWithRetries(killAllPythonw: killAllPythonw)
+        .whenComplete(() => _deployment = null);
+  }
+
+  Future<bool> _runWithRetries({required bool killAllPythonw}) async {
     isDeployLoading.value = true;
+    deployRetryCount.value = 0;
     deployPhase.value = I18n.homeDeployPreparing;
+    final runner = DeployRetryRunner(maxRetries: maxDeployRetries);
+    _retryRunner = runner;
     try {
+      await _stopActiveCommand();
       if (Get.isRegistered<SettingsController>()) {
         await Get.find<SettingsController>().killServer(
           showTip: false,
@@ -337,62 +389,103 @@ class ServerController extends GetxController with LogMixin {
         );
       }
       clearLog();
-      shell!.kill();
-      await runShell('echo OAS working directory: ');
-      await runShell('cd');
-      if (killAllPythonw) {
-        await runShell(
-          'taskkill /f /t /im pythonw.exe',
-          ignorePythonwNotRunning: true,
-        );
-      }
-      deployPhase.value = I18n.homeDeployUpdating;
-      final prefetched = await prefetchRepository();
-      if (!prefetched) {
-        return false;
-      }
-      final pythonConfig = DeployPythonConfig.read(rootPathServer.value);
-      deployPhase.value = I18n.homeDeployInstalling;
-      final installed = await runShell(
-        shellExecutableArguments(
-          pythonConfig.getPythonPath(rootPathServer.value),
-          ['-m', 'deploy.installer'],
-        ),
+      final succeeded = await runner.run(
+        attempt: (retry) async {
+          _failureMonitor = DeployFailureMonitor();
+          final started = await _runDeployAttempt(
+            killAllPythonw: killAllPythonw && retry == 0,
+          );
+          if (!started) await _stopActiveCommand();
+          return started;
+        },
+        onRetry: (retry, delay) {
+          deployRetryCount.value = retry;
+          deployPhase.value = I18n.homeDeployRetrying;
+          addLog('WARNING: ${I18n.homeDeployRetryDelay.trParams({
+            'count': '$retry',
+            'total': '$maxDeployRetries',
+            'seconds': '${delay.inSeconds}',
+          })}');
+        },
       );
-      if (!installed) {
-        return false;
+      if (!succeeded && !runner.isCancelled) {
+        deployPhase.value = I18n.homeDeployFailed;
+        addLog('ERROR: ${I18n.homeDeployFailed.tr}');
       }
-      deployPhase.value = I18n.homeDeployStarting;
-      await runShell('echo Start OAS');
-      unawaited(
-        runShell(
-          shellExecutableArguments(
-            pythonConfig.getPythonwPath(rootPathServer.value),
-            ['server.py'],
-          ),
-        ),
+      return succeeded;
+    } catch (e) {
+      deployPhase.value = I18n.homeDeployFailed;
+      addLog('ERROR: OAS 启动失败：$e');
+      try {
+        await _stopActiveCommand();
+      } catch (stopError) {
+        addLog('ERROR: $stopError');
+      }
+      return false;
+    } finally {
+      _failureMonitor = null;
+      _retryRunner = null;
+      isDeployLoading.value = false;
+    }
+  }
+
+  Future<bool> _runDeployAttempt({required bool killAllPythonw}) async {
+    deployPhase.value = I18n.homeDeployPreparing;
+    await runShell('echo OAS working directory: ');
+    await runShell('cd');
+    if (killAllPythonw) {
+      await runShell(
+        'taskkill /f /t /im pythonw.exe',
+        ignorePythonwNotRunning: true,
       );
+    }
+    deployPhase.value = I18n.homeDeployUpdating;
+    if (!await prefetchRepository() || _failureMonitor!.hasFailed) {
+      return false;
+    }
+    final pythonConfig = DeployPythonConfig.read(rootPathServer.value);
+    deployPhase.value = I18n.homeDeployInstalling;
+    final installed = await runShell(
+      shellExecutableArguments(
+        pythonConfig.getPythonPath(rootPathServer.value),
+        ['-m', 'deploy.installer'],
+      ),
+    );
+    if (!installed || _failureMonitor!.hasFailed) return false;
 
-      final shouldAutoLogin = _resolveAutoLoginAfterDeploy();
-      if (!shouldAutoLogin) {
-        return true;
-      }
-
-      final address = _storage.read(StorageKey.address.name) ?? '';
-      if (address.isEmpty) {
-        return true;
-      }
-      await Future.delayed(const Duration(seconds: 2));
-      deployPhase.value = I18n.homeDeployConnecting;
-      await _tryConnect(
+    deployPhase.value = I18n.homeDeployStarting;
+    final serverRun = runShell(
+      shellExecutableArguments(
+        pythonConfig.getPythonwPath(rootPathServer.value),
+        ['server.py'],
+      ),
+    );
+    final monitor = _failureMonitor!;
+    var serverExited = false;
+    final exited = serverRun.then((_) {
+      serverExited = true;
+      return false;
+    });
+    final storedAddress = _storage.read<String>(StorageKey.address.name) ?? '';
+    final address = storedAddress.isEmpty ? ApiClient().address : storedAddress;
+    deployPhase.value = I18n.homeDeployConnecting;
+    final connected = await Future.any([
+      _tryConnect(
         address,
         retries: 60,
         retryDelay: const Duration(milliseconds: 500),
-      );
-      return true;
-    } finally {
-      isDeployLoading.value = false;
+        loginAfterConnected: _resolveAutoLoginAfterDeploy(),
+        shouldStop: () => monitor.hasFailed || serverExited,
+      ),
+      exited,
+      monitor.failed.then((_) => false),
+    ]);
+    if (!connected) {
+      monitor.fail();
+      await _stopActiveCommand();
+      await serverRun;
     }
+    return connected;
   }
 
   bool _resolveAutoLoginAfterDeploy() {
@@ -410,6 +503,8 @@ class ServerController extends GetxController with LogMixin {
     String rawAddress, {
     int retries = 1,
     Duration retryDelay = const Duration(milliseconds: 500),
+    bool loginAfterConnected = true,
+    bool Function()? shouldStop,
   }) async {
     final address =
         rawAddress.startsWith('http://') || rawAddress.startsWith('https://')
@@ -418,8 +513,11 @@ class ServerController extends GetxController with LogMixin {
     ApiClient().setAddress(address);
 
     for (int i = 0; i < retries; i++) {
+      if (shouldStop?.call() ?? false) return false;
       final connected = await ApiClient().testAddress();
+      if (shouldStop?.call() ?? false) return false;
       if (connected) {
+        if (!loginAfterConnected) return true;
         try {
           if (Get.isRegistered<HomeDashboardController>()) {
             await Get.find<HomeDashboardController>()
@@ -430,7 +528,11 @@ class ServerController extends GetxController with LogMixin {
         } catch (_) {
           // Keep navigation behavior even if dashboard refresh fails here.
         }
-        await Get.find<LocaleService>().refreshTransFromRemote();
+        if (Get.isRegistered<LocaleService>()) {
+          try {
+            await Get.find<LocaleService>().refreshTransFromRemote();
+          } catch (_) {}
+        }
         Get.offAllNamed('/home');
         return true;
       }

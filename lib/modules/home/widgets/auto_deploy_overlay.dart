@@ -76,9 +76,8 @@ class _AutoDeployOverlayState extends State<AutoDeployOverlay>
                         ),
                         const SizedBox(height: 16),
                         Obx(() => Text(
-                              (server?.deployPhase.value ??
-                                      I18n.homeDeployPreparing)
-                                  .tr,
+                              server?.deployStatusText ??
+                                  I18n.homeDeployPreparing.tr,
                               style: TextStyle(
                                 color: muted,
                                 fontSize: 18,

@@ -185,6 +185,10 @@ class I18n {
       homeDeployConnecting = 'home_deploy_connecting',
       homeDeployConnectionPending = 'home_deploy_connection_pending',
       homeDeployWaitingLog = 'home_deploy_waiting_log',
+      homeDeployRetrying = 'home_deploy_retrying',
+      homeDeployRetryCount = 'home_deploy_retry_count',
+      homeDeployRetryDelay = 'home_deploy_retry_delay',
+      homeDeployFailed = 'home_deploy_failed',
       homeLoadingAutoLogin = 'home_loading_auto_login',
       homeLoadingConfigDetail = 'home_loading_config_detail';
   static const String homeScriptAbnormal = 'home_script_abnormal',

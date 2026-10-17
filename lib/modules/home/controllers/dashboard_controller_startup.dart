@@ -60,6 +60,7 @@ extension HomeDashboardStartupX on HomeDashboardController {
     }
     isStartupChecking.value = true;
     isStartupConnectionFailed.value = false;
+    startupFailureMessage.value = '';
     try {
       if (PlatformUtils.isWeb && !ApiClient().hasConfiguredBackendAddress) {
         isStartupConnectionFailed.value = true;
@@ -96,8 +97,12 @@ extension HomeDashboardStartupX on HomeDashboardController {
       startupLoadingMessage.value = I18n.homeLoadingAutoDeploying;
       isStartupAutoDeploying.value = true;
       try {
-        await serverController.run();
-        await _waitUntilDeployFinished(serverController);
+        final started = await serverController.run();
+        if (!started) {
+          startupFailureMessage.value = serverController.deployStatusText;
+          isStartupConnectionFailed.value = true;
+          return;
+        }
       } finally {
         isStartupAutoDeploying.value = false;
       }
@@ -157,11 +162,4 @@ extension HomeDashboardStartupX on HomeDashboardController {
     return false;
   }
 
-  Future<void> _waitUntilDeployFinished(ServerController controller) async {
-    var retries = 0;
-    while (controller.isDeployLoading.value && retries < 20) {
-      retries += 1;
-      await Future.delayed(const Duration(milliseconds: 250));
-    }
-  }
 }

@@ -158,6 +158,7 @@ class HomeDashboardController extends GetxController {
   final isStartupConnectionFailed = false.obs;
   final isStartupAutoDeploying = false.obs;
   final startupLoadingMessage = ''.obs;
+  final startupFailureMessage = ''.obs;
   final isLinkModeEnabled = false.obs;
   final linkedScriptList = <String>[].obs;
   final searchQuery = ''.obs;
