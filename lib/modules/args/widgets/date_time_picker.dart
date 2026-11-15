@@ -66,9 +66,11 @@ class DateTimePickerBaseState extends State<DateTimePickerBase> {
 
   @override
   Widget build(BuildContext context) {
-    final hoverStyle = widget.hoverStyle ??
-        TextStyle(color: Theme.of(context).primaryColor, fontSize: 16);
-    final notHoverStyle = widget.notHoverStyle ?? const TextStyle(fontSize: 16);
+    final colors = Theme.of(context).colorScheme;
+    final baseStyle = TextStyle(color: colors.onSurface, fontSize: 16);
+    final hoverStyle =
+        baseStyle.copyWith(color: colors.primary).merge(widget.hoverStyle);
+    final notHoverStyle = baseStyle.merge(widget.notHoverStyle);
     final baseHeight = (hoverStyle.fontSize ?? 16) * 1.2;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
